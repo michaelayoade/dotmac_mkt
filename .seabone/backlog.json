@@ -1,0 +1,41 @@
+[
+  {
+    "id": "starter-fix-docker",
+    "finding_date": "2026-02-28",
+    "severity": "high",
+    "category": "quality",
+    "task": "Fix Docker build failure in dotmac_starter. Check Dockerfile, fix missing dependencies or build errors. Ensure docker build -t test . succeeds.",
+    "engine": "aider",
+    "priority_score": 90,
+    "track": "quality",
+    "status": "pending",
+    "attempt_count": 0,
+    "estimated_effort": 3
+  },
+  {
+    "id": "starter-fix-lint",
+    "finding_date": "2026-02-28",
+    "severity": "medium",
+    "category": "quality",
+    "task": "Fix all ruff lint and format errors in dotmac_starter. Run ruff check app/ tests/ --fix and ruff format app/ tests/.",
+    "engine": "aider",
+    "priority_score": 60,
+    "track": "quality",
+    "status": "pending",
+    "attempt_count": 0,
+    "estimated_effort": 2
+  },
+  {
+    "id": "starter-fix-tests",
+    "finding_date": "2026-02-28",
+    "severity": "high",
+    "category": "quality",
+    "task": "Fix failing tests in dotmac_starter. Run pytest, fix all failures.",
+    "engine": "aider",
+    "priority_score": 90,
+    "track": "quality",
+    "status": "pending",
+    "attempt_count": 0,
+    "estimated_effort": 4
+  }
+]

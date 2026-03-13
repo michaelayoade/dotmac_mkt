@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Payment Method Detail' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Viewing payment method record</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="/admin/billing/payment-methods" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Back to List
+        </a>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Customer</label>
+            <p class="text-sm text-slate-900 dark:text-white">
+                {% if payment_method.customer %}
+                <a href="/admin/billing/customers/{{ payment_method.customer.id }}" class="text-primary-600 dark:text-primary-400 hover:underline">{{ payment_method.customer.name if payment_method.customer.name else payment_method.customer.email }}</a>
+                {% else %}
+                -
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Type</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ payment_method.type | replace('_', ' ') | title if payment_method.type else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Default</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ 'Yes' if payment_method.is_default else 'No' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Active</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ 'Yes' if payment_method.is_active else 'No' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Card Brand</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ payment_method.card_brand | title if payment_method.card_brand else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Card Last Four</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ '**** **** **** ' ~ payment_method.card_last_four if payment_method.card_last_four else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Card Expiry</label>
+            <p class="text-sm text-slate-900 dark:text-white">
+                {% if payment_method.card_exp_month and payment_method.card_exp_year %}
+                {{ "%02d"|format(payment_method.card_exp_month) }}/{{ payment_method.card_exp_year }}
+                {% else %}
+                -
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">External ID</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ payment_method.external_id if payment_method.external_id else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Created</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ payment_method.created_at | timeago if payment_method.created_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Updated</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ payment_method.updated_at | timeago if payment_method.updated_at else '-' }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

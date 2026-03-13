@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Webhook Event Detail' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Viewing webhook event record</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="/admin/billing/webhook-events" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Back to List
+        </a>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Provider</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ event.provider | replace('_', ' ') | title if event.provider else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Event Type</label>
+            <p class="text-sm text-slate-900 dark:text-white">
+                <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-xs">{{ event.event_type if event.event_type else '-' }}</code>
+            </p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Event ID</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ event.event_id if event.event_id else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Status</label>
+            <p class="text-sm">{{ event.status | replace('_', ' ') | title if event.status else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Processed At</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ event.processed_at | timeago if event.processed_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Error Message</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ event.error_message if event.error_message else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Created</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ event.created_at | timeago if event.created_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Updated</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ event.updated_at | timeago if event.updated_at else '-' }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Payload -->
+<div class="mt-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Payload</h2>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="p-4">
+            {% if event.payload %}
+            <pre class="text-sm text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 rounded-lg p-4 overflow-x-auto"><code>{{ event.payload | tojson(indent=2) }}</code></pre>
+            {% else %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">No payload data available</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

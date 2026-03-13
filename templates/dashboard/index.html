@@ -1,0 +1,107 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/table_macros.html" import status_badge, empty_state %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    {# Stats row #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% set stats = [
+            {"label": "Total Campaigns", "value": total_campaigns if total_campaigns is defined else 0, "icon": "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"},
+            {"label": "Total Assets", "value": total_assets if total_assets is defined else 0, "icon": "M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M18 3.75h-1.5a.75.75 0 01-.75-.75V1.5m3 2.25V1.5m0 2.25h1.5m-1.5 0h-1.5"},
+            {"label": "Active Tasks", "value": active_tasks if active_tasks is defined else 0, "icon": "M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08"},
+            {"label": "Connected Channels", "value": connected_channels if connected_channels is defined else 0, "icon": "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375"},
+        ] %}
+        {% for stat in stats %}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 stagger-in">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ stat.icon }}" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white counter-animate">{{ stat.value }}</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ stat.label }}</p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        {{ empty_state("No stats available") }}
+        {% endfor %}
+    </div>
+
+    {# Main grid: Active campaigns + Upcoming posts #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {# Active Campaigns Card #}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Active Campaigns</h3>
+                <a href="/campaigns" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View all</a>
+            </div>
+            <div class="divide-y divide-slate-100 dark:divide-slate-700">
+                {% for campaign in active_campaigns if active_campaigns is defined %}
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <a href="/campaigns/{{ campaign.id }}" class="text-sm font-medium text-slate-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
+                            {{ campaign.name if campaign.name else '' }}
+                        </a>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {{ campaign.start_date.strftime('%b %d') if campaign.start_date else '' }} - {{ campaign.end_date.strftime('%b %d') if campaign.end_date else 'Ongoing' }}
+                        </p>
+                    </div>
+                    {{ status_badge(campaign.status | string if campaign.status else 'active') }}
+                </div>
+                {% else %}
+                {{ empty_state("No active campaigns", "/campaigns/new", "New Campaign") }}
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Upcoming Posts Card #}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Upcoming Posts</h3>
+                <a href="/calendar" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View calendar</a>
+            </div>
+            <div class="divide-y divide-slate-100 dark:divide-slate-700">
+                {% for post in upcoming_posts if upcoming_posts is defined %}
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-900 dark:text-white">{{ post.title if post.title else '' }}</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {{ post.channel_name if post.channel_name else '' }} &middot; {{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}
+                        </p>
+                    </div>
+                    {{ status_badge(post.status | string if post.status else 'draft') }}
+                </div>
+                {% else %}
+                {{ empty_state("No upcoming posts") }}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# Channel Health Badges #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Channel Health</h3>
+        <div class="flex flex-wrap gap-3">
+            {% set health_color_map = {
+                'healthy': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                'warning': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                'error': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                'disconnected': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+            } %}
+            {% for ch in channel_health if channel_health is defined %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium {{ health_color_map.get(ch.status if ch.status else 'disconnected', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
+                <span class="w-1.5 h-1.5 rounded-full {{ 'bg-green-500' if ch.status == 'healthy' else ('bg-yellow-500' if ch.status == 'warning' else ('bg-red-500' if ch.status == 'error' else 'bg-slate-400')) }}"></span>
+                {{ ch.name if ch.name else 'Unknown' }}
+            </span>
+            {% else %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">No channels connected. <a href="/channels" class="text-primary-600 dark:text-primary-400 hover:underline">Connect a channel</a></p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

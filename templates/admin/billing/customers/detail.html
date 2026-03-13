@@ -1,0 +1,149 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Customer Detail' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Viewing customer record</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="/admin/billing/customers/{{ customer.id }}/edit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit
+        </a>
+        <a href="/admin/billing/customers" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Back to List
+        </a>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Name</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.name if customer.name else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Email</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.email if customer.email else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.currency if customer.currency else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Balance</label>
+            <p class="text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(customer.balance / 100) if customer.balance else '0.00' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Tax ID</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.tax_id if customer.tax_id else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">External ID</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.external_id if customer.external_id else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Active</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ 'Yes' if customer.is_active else 'No' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Created</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.created_at | timeago if customer.created_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Updated</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ customer.updated_at | timeago if customer.updated_at else '-' }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Subscriptions -->
+<div class="mt-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Subscriptions</h2>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {% if subscriptions %}
+        <table class="w-full">
+            {{ tables.table_header([
+                {'label': 'Status'},
+                {'label': 'Current Period'},
+                {'label': 'Cancel at Period End'},
+                {'label': 'Active'},
+                {'label': 'Actions', 'class': 'text-right'}
+            ]) }}
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                {% for subscription in subscriptions %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td class="px-4 py-3">
+                        {{ tables.status_badge(subscription.status | replace('_', ' ') if subscription.status else '') }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                        {{ subscription.current_period_start.strftime('%Y-%m-%d') if subscription.current_period_start else '-' }}
+                        to
+                        {{ subscription.current_period_end.strftime('%Y-%m-%d') if subscription.current_period_end else '-' }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ 'Yes' if subscription.cancel_at_period_end else 'No' }}</td>
+                    <td class="px-4 py-3">
+                        {{ tables.status_badge('active' if subscription.is_active else 'inactive') }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+                        {{ tables.action_buttons(
+                            detail_url='/admin/billing/subscriptions/' ~ subscription.id,
+                            edit_url='/admin/billing/subscriptions/' ~ subscription.id ~ '/edit',
+                            csrf_token=csrf
+                        ) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {{ tables.empty_state('No subscriptions found') }}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Payment Methods -->
+<div class="mt-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Payment Methods</h2>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {% if payment_methods %}
+        <table class="w-full">
+            {{ tables.table_header([
+                {'label': 'Type'},
+                {'label': 'Default'},
+                {'label': 'Status'},
+                {'label': 'Created'},
+                {'label': 'Actions', 'class': 'text-right'}
+            ]) }}
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                {% for pm in payment_methods %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td class="px-4 py-3">
+                        {{ tables.status_badge(pm.type | replace('_', ' ') if pm.type else '') }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ 'Yes' if pm.is_default else 'No' }}</td>
+                    <td class="px-4 py-3">
+                        {{ tables.status_badge('active' if pm.is_active else 'inactive') }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ pm.created_at | timeago if pm.created_at else '-' }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+                        {{ tables.action_buttons(
+                            detail_url='/admin/billing/payment-methods/' ~ pm.id,
+                            csrf_token=csrf
+                        ) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {{ tables.empty_state('No payment methods found') }}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

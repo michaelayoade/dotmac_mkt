@@ -1,0 +1,10 @@
+📋 *dotmac_starter* ❌ CI:failure
+Backlog: 3 items (2 high priority)
+
+Top findings:
+  • [high] Fix Docker build failure in dotmac_starter. Check Dockerfile, fix missing depend
+    Track: quality | Score: 90
+  • [high] Fix failing tests in dotmac_starter. Run pytest, fix all failures.
+    Track: quality | Score: 90
+  • [medium] Fix all ruff lint and format errors in dotmac_starter. Run ruff check app/ tests
+    Track: quality | Score: 60

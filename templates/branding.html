@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "components/_file_upload.html" import file_upload_zone %}
+
+{% block title %}Branding Settings{% endblock %}
+
+{% block content %}
+<main class="mx-auto max-w-5xl px-6 py-12">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white font-display">Branding & Theme Builder</h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Customize brand identity, colors, and typography.</p>
+    </div>
+    <a href="/" class="rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">Back</a>
+  </div>
+
+  {% if success %}
+  <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+    Branding settings updated.
+  </div>
+  {% endif %}
+
+  <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"
+       x-data="brandingEditor"
+       data-initial='{{ {"primary": branding.primary_color, "accent": branding.accent_color, "displayFont": branding.font_family_display, "bodyFont": branding.font_family_body} | tojson }}'>
+    <form method="POST" action="/settings/branding" enctype="multipart/form-data" class="space-y-6">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Identity</h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Display Name</label>
+            <input name="display_name" value="{{ branding.display_name or '' }}" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Tagline</label>
+            <input name="tagline" value="{{ branding.tagline or '' }}" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          </div>
+        </div>
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Brand Mark</label>
+          <input name="brand_mark" maxlength="4" value="{{ branding.brand_mark or '' }}" class="mt-1 w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm uppercase dark:border-slate-700 dark:bg-slate-900">
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Theme</h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Primary Color</label>
+            <div class="mt-1 flex gap-2">
+              <input type="color" x-model="primary" class="h-10 w-12 rounded border border-slate-200 p-1 dark:border-slate-700">
+              <input name="primary_color" x-model="primary" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono uppercase dark:border-slate-700 dark:bg-slate-900">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Accent Color</label>
+            <div class="mt-1 flex gap-2">
+              <input type="color" x-model="accent" class="h-10 w-12 rounded border border-slate-200 p-1 dark:border-slate-700">
+              <input name="accent_color" x-model="accent" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono uppercase dark:border-slate-700 dark:bg-slate-900">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Display Font</label>
+            <input name="font_family_display" x-model="displayFont" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Body Font</label>
+            <input name="font_family_body" x-model="bodyFont" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          </div>
+        </div>
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Custom CSS</label>
+          <textarea name="custom_css" rows="5" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono dark:border-slate-700 dark:bg-slate-900">{{ branding.custom_css or '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Assets</h2>
+        <div class="mt-4 space-y-4">
+          {{ file_upload_zone("logo_file", "Logo", "Primary logo for light UI.", "image/*", branding.logo_url or "", "remove_logo") }}
+          {{ file_upload_zone("logo_dark_file", "Dark Logo", "Logo variant for dark UI.", "image/*", branding.logo_dark_url or "", "remove_logo_dark") }}
+        </div>
+      </div>
+
+      <button type="submit" class="btn-brand rounded-xl px-5 py-2.5 text-sm font-semibold">Save Branding</button>
+    </form>
+
+    <aside class="space-y-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Live Preview</h2>
+        <div class="mt-4 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700"
+               :style="gradientStyle()">
+            <span class="text-sm font-semibold text-white" x-text="displayFont"></span>
+            <span class="rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">Preview</span>
+          </div>
+          <div class="p-4">
+            <h3 class="font-display text-lg text-slate-900 dark:text-white" :style="displayFontStyle()">Heading Sample</h3>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300" :style="bodyFontStyle()">Body sample text for readability and spacing.</p>
+            <button class="btn-brand mt-3 rounded-lg px-3 py-1.5 text-xs font-semibold">Primary Action</button>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+        Changes are saved to DB-backed settings and rendered globally through dynamic CSS injection.
+      </div>
+    </aside>
+  </div>
+</main>
+{% endblock %}

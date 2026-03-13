@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Add Coupon' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Create a new coupon</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/billing/coupons/create">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{ forms.text_input('name', 'Name', required=true, placeholder='Coupon name') }}
+            {{ forms.text_input('code', 'Code', required=true, placeholder='SAVE20') }}
+            {{ forms.text_input('percent_off', 'Percent Off', type='number', placeholder='20', help_text='Percentage discount (leave blank if using amount)') }}
+            {{ forms.text_input('amount_off', 'Amount Off (cents)', type='number', placeholder='1000', help_text='Amount in cents (leave blank if using percent)') }}
+            {{ forms.text_input('currency', 'Currency', placeholder='usd', help_text='Required if using amount_off') }}
+            {{ forms.select_field('duration', 'Duration', [
+                {'value': 'once', 'label': 'Once'},
+                {'value': 'repeating', 'label': 'Repeating'},
+                {'value': 'forever', 'label': 'Forever'}
+            ], required=true) }}
+            {{ forms.text_input('duration_in_months', 'Duration in Months', type='number', placeholder='3', help_text='Required if duration is repeating') }}
+            {{ forms.text_input('max_redemptions', 'Max Redemptions', type='number', placeholder='Unlimited') }}
+            {{ forms.text_input('redeem_by', 'Redeem By', type='date', help_text='Last date the coupon can be redeemed') }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.checkbox('valid', 'Valid', checked=true) }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Create Coupon', '/admin/billing/coupons') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

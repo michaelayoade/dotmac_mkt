@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Edit Role' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Update role details and permissions</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/roles/{{ role.id }}/edit">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 gap-6">
+            {{ forms.text_input('name', 'Name', value=role.name, required=true) }}
+            {{ forms.textarea('description', 'Description', value=role.description if role.description else '') }}
+        </div>
+
+        {% if permissions %}
+        <div class="mt-8">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-1">Permissions</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Select the permissions to assign to this role</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {% for perm in permissions %}
+                <label class="flex items-start gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors">
+                    <input type="checkbox" name="permission_ids" value="{{ perm.id }}"
+                           {% if perm.id in role_permission_ids %}checked{% endif %}
+                           class="mt-0.5 rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500" />
+                    <div>
+                        <span class="text-sm font-medium text-slate-900 dark:text-white">{{ perm.key if perm.key else '' }}</span>
+                        {% if perm.description %}
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ perm.description }}</p>
+                        {% endif %}
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="mt-6">
+            {{ forms.submit_button('Update Role', '/admin/roles') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% if org_branding and org_branding.fonts_url %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="{{ org_branding.fonts_url }}" rel="stylesheet">
+{% endif %}
+{% if org_branding and org_branding.css %}
+<style id="org-branding">
+{{ org_branding.css }}
+</style>
+{% endif %}

@@ -1,0 +1,78 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Notifications' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">View and manage your notifications</p>
+</div>
+
+{% if notifications %}
+<div class="space-y-3">
+    {% for notification in notifications %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 {{ 'border-l-4 border-l-primary-500' if not notification.read_at else '' }}">
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                    {% if not notification.read_at %}
+                    <span class="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0"></span>
+                    {% endif %}
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {{ notification.title if notification.title else 'Notification' }}
+                    </h3>
+                    {% if notification.type %}
+                    {% set type_colors = {
+                        'info': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                        'success': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                        'warning': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                        'error': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    } %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ type_colors.get(notification.type.value | lower if notification.type.value is defined else notification.type | lower, 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
+                        {{ notification.type.value | replace('_', ' ') | title if notification.type.value is defined else notification.type | replace('_', ' ') | title }}
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-300 mb-2">{{ notification.message if notification.message else '' }}</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500">{{ notification.created_at | timeago }}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                {% if not notification.read_at %}
+                <form method="POST" action="/admin/notifications/{{ notification.id }}/read" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+                    <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                        Mark Read
+                    </button>
+                </form>
+                {% else %}
+                <span class="text-xs text-slate-400 dark:text-slate-500">Read</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<div class="mt-6 flex items-center justify-between">
+    <p class="text-sm text-slate-500 dark:text-slate-400">Page {{ page }} of {{ total_pages }}</p>
+    <div class="flex items-center gap-1">
+        {% if page > 1 %}
+        <a href="/admin/notifications?page={{ page - 1 }}" class="px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Previous</a>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="/admin/notifications?page={{ page + 1 }}" class="px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Next</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="text-center py-12">
+        <svg class="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+        </svg>
+        <p class="text-sm text-slate-500 dark:text-slate-400">No notifications</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

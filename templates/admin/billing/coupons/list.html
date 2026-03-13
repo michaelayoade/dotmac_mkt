@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Coupons' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage billing coupons</p>
+    </div>
+    <a href="/admin/billing/coupons/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Coupon
+    </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if coupons %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Name'},
+            {'label': 'Code'},
+            {'label': 'Discount'},
+            {'label': 'Duration'},
+            {'label': 'Times Redeemed'},
+            {'label': 'Valid'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for coupon in coupons %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ coupon.name if coupon.name else '' }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-xs">{{ coupon.code if coupon.code else '' }}</code>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                    {% if coupon.percent_off %}
+                    {{ coupon.percent_off }}%
+                    {% elif coupon.amount_off %}
+                    ${{ "%.2f"|format(coupon.amount_off / 100) }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ coupon.duration | replace('_', ' ') | title if coupon.duration else '-' }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ coupon.times_redeemed if coupon.times_redeemed else 0 }}</td>
+                <td class="px-4 py-3">
+                    {{ tables.status_badge('active' if coupon.valid else 'inactive') }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        edit_url='/admin/billing/coupons/' ~ coupon.id ~ '/edit',
+                        delete_url='/admin/billing/coupons/' ~ coupon.id ~ '/delete',
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/billing/coupons') }}
+    {% else %}
+    {{ tables.empty_state('No coupons found', '/admin/billing/coupons/create', 'Add Coupon') }}
+    {% endif %}
+</div>
+{% endblock %}

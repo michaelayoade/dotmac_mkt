@@ -1,0 +1,144 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Subscription Detail' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Viewing subscription record</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="/admin/billing/subscriptions/{{ subscription.id }}/edit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit
+        </a>
+        <a href="/admin/billing/subscriptions" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Back to List
+        </a>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Customer</label>
+            <p class="text-sm text-slate-900 dark:text-white">
+                {% if subscription.customer %}
+                <a href="/admin/billing/customers/{{ subscription.customer.id }}" class="text-primary-600 dark:text-primary-400 hover:underline">{{ subscription.customer.name if subscription.customer.name else subscription.customer.email }}</a>
+                {% else %}
+                -
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Status</label>
+            <p class="text-sm">{{ subscription.status | replace('_', ' ') | title if subscription.status else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Current Period Start</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ subscription.current_period_start.strftime('%Y-%m-%d %H:%M') if subscription.current_period_start else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Current Period End</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ subscription.current_period_end.strftime('%Y-%m-%d %H:%M') if subscription.current_period_end else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Cancel at Period End</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ 'Yes' if subscription.cancel_at_period_end else 'No' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Canceled At</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ subscription.canceled_at.strftime('%Y-%m-%d %H:%M') if subscription.canceled_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">External ID</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ subscription.external_id if subscription.external_id else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Active</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ 'Yes' if subscription.is_active else 'No' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Created</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ subscription.created_at | timeago if subscription.created_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Updated</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ subscription.updated_at | timeago if subscription.updated_at else '-' }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Subscription Items -->
+<div class="mt-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Subscription Items</h2>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {% if items %}
+        <table class="w-full">
+            {{ tables.table_header([
+                {'label': 'Price'},
+                {'label': 'Quantity'},
+                {'label': 'Created'}
+            ]) }}
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                {% for item in items %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                        {% if item.price %}
+                        ${{ "%.2f"|format(item.price.unit_amount / 100) }} / {{ item.price.recurring_interval if item.price.recurring_interval else 'one-time' }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ item.quantity if item.quantity else '-' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ item.created_at | timeago if item.created_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {{ tables.empty_state('No subscription items found') }}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Invoices -->
+<div class="mt-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Invoices</h2>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {% if invoices %}
+        <table class="w-full">
+            {{ tables.table_header([
+                {'label': 'Number'},
+                {'label': 'Status'},
+                {'label': 'Total'},
+                {'label': 'Due Date'},
+                {'label': 'Actions', 'class': 'text-right'}
+            ]) }}
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                {% for invoice in invoices %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ invoice.number if invoice.number else '-' }}</td>
+                    <td class="px-4 py-3">
+                        {{ tables.status_badge(invoice.status | replace('_', ' ') if invoice.status else '') }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(invoice.total / 100) if invoice.total else '0.00' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '-' }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+                        {{ tables.action_buttons(
+                            detail_url='/admin/billing/invoices/' ~ invoice.id,
+                            csrf_token=csrf
+                        ) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {{ tables.empty_state('No invoices found') }}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

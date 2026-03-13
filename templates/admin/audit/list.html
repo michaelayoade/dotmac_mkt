@@ -1,0 +1,86 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Audit Log' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Review system audit events and activity</p>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-6">
+    <form method="GET" action="/admin/audit" class="flex flex-wrap items-end gap-4">
+        <div class="flex-1 min-w-[200px]">
+            <label for="action" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Action</label>
+            <input type="text" id="action" name="action" value="{{ request.query_params.get('action', '') }}"
+                   placeholder="Filter by action..."
+                   class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+        </div>
+        <div class="flex-1 min-w-[200px]">
+            <label for="entity_type" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Entity Type</label>
+            <input type="text" id="entity_type" name="entity_type" value="{{ request.query_params.get('entity_type', '') }}"
+                   placeholder="Filter by entity type..."
+                   class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+        </div>
+        <div>
+            <button type="submit" class="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition">
+                Filter
+            </button>
+            <a href="/admin/audit" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition ml-1">
+                Clear
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if events %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Time'},
+            {'label': 'Actor'},
+            {'label': 'Action'},
+            {'label': 'Entity'},
+            {'label': 'Status'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for event in events %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    {{ event.occurred_at | timeago }}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                    {{ event.actor if event.actor else 'System' }}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        {{ event.action | replace('_', ' ') | title if event.action else '' }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    {% if event.entity_type %}
+                    <span class="font-medium">{{ event.entity_type | replace('_', ' ') | title }}</span>
+                    {% if event.entity_id %}
+                    <span class="text-slate-400 dark:text-slate-500 text-xs ml-1">#{{ event.entity_id }}</span>
+                    {% endif %}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {{ tables.status_badge(event.status.value if event.status else (event.status if event.status else '')) }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(detail_url='/admin/audit/' ~ event.id, csrf_token=csrf) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/audit') }}
+    {% else %}
+    {{ tables.empty_state('No audit events found') }}
+    {% endif %}
+</div>
+{% endblock %}

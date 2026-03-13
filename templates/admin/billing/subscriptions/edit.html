@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Edit Subscription' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Update subscription details</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/billing/subscriptions/{{ subscription.id }}/edit">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Customer</label>
+                <p class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-600 text-slate-900 dark:text-white text-sm">{{ subscription.customer.name if subscription.customer else '-' }}</p>
+            </div>
+            {{ forms.select_field('status', 'Status', [
+                {'value': 'active', 'label': 'Active'},
+                {'value': 'past_due', 'label': 'Past Due'},
+                {'value': 'canceled', 'label': 'Canceled'},
+                {'value': 'incomplete', 'label': 'Incomplete'},
+                {'value': 'incomplete_expired', 'label': 'Incomplete Expired'},
+                {'value': 'trialing', 'label': 'Trialing'},
+                {'value': 'unpaid', 'label': 'Unpaid'},
+                {'value': 'paused', 'label': 'Paused'}
+            ], selected=subscription.status if subscription.status else '', required=true) }}
+            {{ forms.text_input('external_id', 'External ID', value=subscription.external_id if subscription.external_id else '') }}
+        </div>
+
+        <div class="mt-6 space-y-4">
+            {{ forms.checkbox('cancel_at_period_end', 'Cancel at Period End', checked=subscription.cancel_at_period_end if subscription.cancel_at_period_end is defined else false) }}
+            {{ forms.checkbox('is_active', 'Is Active', checked=subscription.is_active if subscription.is_active is defined else false) }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Update Subscription', '/admin/billing/subscriptions') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

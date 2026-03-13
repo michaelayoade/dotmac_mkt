@@ -1,0 +1,54 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Products' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage billing products</p>
+    </div>
+    <a href="/admin/billing/products/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Product
+    </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if products %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Name'},
+            {'label': 'Description'},
+            {'label': 'Status'},
+            {'label': 'Created'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for product in products %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ product.name if product.name else '' }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ product.description if product.description else '' }}</td>
+                <td class="px-4 py-3">
+                    {{ tables.status_badge('active' if product.is_active else 'inactive') }}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ product.created_at | timeago if product.created_at else '-' }}</td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        edit_url='/admin/billing/products/' ~ product.id ~ '/edit',
+                        delete_url='/admin/billing/products/' ~ product.id ~ '/delete',
+                        detail_url='/admin/billing/products/' ~ product.id,
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/billing/products') }}
+    {% else %}
+    {{ tables.empty_state('No products found', '/admin/billing/products/create', 'Add Product') }}
+    {% endif %}
+</div>
+{% endblock %}

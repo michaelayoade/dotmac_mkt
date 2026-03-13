@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Upload File' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Upload a new file to the system</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/file-uploads/upload" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <!-- File Drop Zone -->
+        <div x-data="fileDropZone" class="mb-6">
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">File <span class="text-red-500">*</span></label>
+            <div class="relative"
+                 x-on:dragover.prevent="onDragOver()"
+                 x-on:dragleave.prevent="onDragLeave()"
+                 x-on:drop.prevent="onDrop($event)">
+                <input type="file" name="file" required x-ref="fileInput"
+                       x-on:change="onFileChange($event)"
+                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                <div class="border-2 border-dashed rounded-xl p-8 text-center transition-colors"
+                     :class="dropClass()">
+                    <svg class="w-10 h-10 mx-auto text-slate-400 dark:text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <p class="text-sm text-slate-600 dark:text-slate-300" x-show="noFile()">
+                        <span class="font-medium text-primary-600 dark:text-primary-400">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-sm font-medium text-slate-900 dark:text-white" x-show="hasFile()" x-text="fileName"></p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Any file type up to 10MB</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{ forms.select_field('category', 'Category', [
+                {'value': 'document', 'label': 'Document'},
+                {'value': 'avatar', 'label': 'Avatar'},
+                {'value': 'branding', 'label': 'Branding'}
+            ], required=true) }}
+            {{ forms.text_input('entity_type', 'Entity Type', placeholder='e.g. person, role', help_text='The type of entity this file is associated with') }}
+            {{ forms.text_input('entity_id', 'Entity ID', placeholder='e.g. UUID of the entity', help_text='The ID of the entity this file is associated with') }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Upload File', '/admin/file-uploads') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

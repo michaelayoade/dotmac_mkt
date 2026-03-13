@@ -1,0 +1,549 @@
+import uuid
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from app.models.auth import (
+    MFAMethod,
+    MFAMethodType,
+    Session as AuthSession,
+    SessionStatus,
+    UserCredential,
+)
+from app.models.person import Person
+from app.services import auth_flow as auth_flow_service
+from app.services.auth_flow import hash_password
+
+
+class TestLoginAPI:
+    """Tests for the /auth/login endpoint."""
+
+    def test_login_success(self, client, db_session, person):
+        """Test successful login."""
+        # Create user credential
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"loginuser_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("password123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {"username": credential.username, "password": "password123"}
+        response = client.post("/auth/login", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data or "mfa_required" in data
+
+    def test_login_invalid_credentials(self, client):
+        """Test login with invalid credentials."""
+        payload = {"username": "nonexistent", "password": "wrongpassword"}
+        response = client.post("/auth/login", json=payload)
+        assert response.status_code in [401, 404]
+
+    def test_login_wrong_password(self, client, db_session, person):
+        """Test login with wrong password."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"wrongpwd_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("correctpassword"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {"username": credential.username, "password": "wrongpassword"}
+        response = client.post("/auth/login", json=payload)
+        assert response.status_code == 401
+
+    def test_login_inactive_credential(self, client, db_session, person):
+        """Test login with inactive credential."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"inactive_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("password123"),
+            is_active=False,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {"username": credential.username, "password": "password123"}
+        response = client.post("/auth/login", json=payload)
+        assert response.status_code in [401, 404]
+
+    def test_login_password_reset_required(self, client, db_session, person):
+        """Test login when password reset is required."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"resetreq_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("password123"),
+            is_active=True,
+            must_change_password=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {"username": credential.username, "password": "password123"}
+        response = client.post("/auth/login", json=payload)
+        assert response.status_code == 428
+        data = response.json()
+        # Error handler transforms response to {"code": ..., "message": ..., "details": ...}
+        assert data["code"] == "PASSWORD_RESET_REQUIRED"
+
+
+class TestMeAPI:
+    """Tests for the /auth/me endpoints."""
+
+    def test_get_me(self, client, auth_headers, person):
+        """Test getting current user profile."""
+        response = client.get("/auth/me", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == person.first_name
+        assert data["email"] == person.email
+
+    def test_get_me_unauthorized(self, client):
+        """Test getting profile without auth."""
+        response = client.get("/auth/me")
+        assert response.status_code == 401
+
+    def test_update_me(self, client, auth_headers, person):
+        """Test updating current user profile."""
+        payload = {"first_name": "UpdatedName"}
+        response = client.patch("/auth/me", json=payload, headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "UpdatedName"
+
+    def test_update_me_multiple_fields(self, client, auth_headers):
+        """Test updating multiple profile fields."""
+        payload = {
+            "first_name": "NewFirst",
+            "last_name": "NewLast",
+            "phone": "+1111111111",
+        }
+        response = client.patch("/auth/me", json=payload, headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "NewFirst"
+        assert data["last_name"] == "NewLast"
+
+
+class TestSessionsAPI:
+    """Tests for the /auth/me/sessions endpoints."""
+
+    def test_list_sessions(self, client, auth_headers, auth_session):
+        """Test listing user sessions."""
+        response = client.get("/auth/me/sessions", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "sessions" in data
+        assert "total" in data
+        assert isinstance(data["sessions"], list)
+
+    def test_list_sessions_unauthorized(self, client):
+        """Test listing sessions without auth."""
+        response = client.get("/auth/me/sessions")
+        assert response.status_code == 401
+
+    def test_revoke_session(self, client, auth_headers, db_session, person):
+        """Test revoking a specific session."""
+        # Create another session to revoke
+        other_session = AuthSession(
+            person_id=person.id,
+            token_hash="other-token-hash",
+            status=SessionStatus.active,
+            ip_address="192.168.1.1",
+            user_agent="other-client",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        db_session.add(other_session)
+        db_session.commit()
+        db_session.refresh(other_session)
+
+        response = client.delete(
+            f"/auth/me/sessions/{other_session.id}", headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "revoked_at" in data
+
+    def test_revoke_session_not_found(self, client, auth_headers):
+        """Test revoking a non-existent session."""
+        fake_id = str(uuid.uuid4())
+        response = client.delete(f"/auth/me/sessions/{fake_id}", headers=auth_headers)
+        assert response.status_code == 404
+
+    def test_revoke_all_other_sessions(self, client, auth_headers, db_session, person):
+        """Test revoking all other sessions."""
+        # Create additional sessions
+        for i in range(3):
+            session = AuthSession(
+                person_id=person.id,
+                token_hash=f"session-{i}-hash",
+                status=SessionStatus.active,
+                ip_address=f"192.168.1.{i}",
+                user_agent=f"client-{i}",
+                expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            )
+            db_session.add(session)
+        db_session.commit()
+
+        response = client.delete("/auth/me/sessions", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "revoked_at" in data
+
+
+class TestPasswordAPI:
+    """Tests for password-related endpoints."""
+
+    def test_change_password(self, client, auth_headers, db_session, person):
+        """Test changing password."""
+        # Create credential for the authenticated user
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"changepwd_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("oldpassword123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {
+            "current_password": "oldpassword123",
+            "new_password": "newpassword456",
+        }
+        response = client.post("/auth/me/password", json=payload, headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "changed_at" in data
+
+    def test_change_password_wrong_current(
+        self, client, auth_headers, db_session, person
+    ):
+        """Test changing password with wrong current password."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"wrongcurrent_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("correctpassword"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {
+            "current_password": "wrongpassword",
+            "new_password": "newpassword456",
+        }
+        response = client.post("/auth/me/password", json=payload, headers=auth_headers)
+        assert response.status_code == 401
+
+    def test_change_password_same_password(
+        self, client, auth_headers, db_session, person
+    ):
+        """Test changing password to the same password."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"samepwd_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("samepassword"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {
+            "current_password": "samepassword",
+            "new_password": "samepassword",
+        }
+        response = client.post("/auth/me/password", json=payload, headers=auth_headers)
+        assert response.status_code == 400
+
+    def test_change_password_revokes_sessions(
+        self, client, auth_headers, db_session, person, auth_session
+    ):
+        """Test changing password revokes active sessions."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"revokepwd_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("oldpassword123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        other_session = AuthSession(
+            person_id=person.id,
+            token_hash="other-session-hash",
+            status=SessionStatus.active,
+            ip_address="192.168.1.100",
+            user_agent="other-client",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        db_session.add(other_session)
+        db_session.commit()
+
+        payload = {
+            "current_password": "oldpassword123",
+            "new_password": "newpassword456",
+        }
+        response = client.post("/auth/me/password", json=payload, headers=auth_headers)
+        assert response.status_code == 200
+
+        sessions = (
+            db_session.query(AuthSession)
+            .filter(AuthSession.person_id == person.id)
+            .all()
+        )
+        assert sessions
+        for session in sessions:
+            assert session.status == SessionStatus.revoked
+            assert session.revoked_at is not None
+
+    def test_forgot_password(self, client, db_session, person):
+        """Test forgot password request."""
+        payload = {"email": person.email}
+        response = client.post("/auth/forgot-password", json=payload)
+        # Always returns success to prevent email enumeration
+        assert response.status_code == 200
+
+    def test_forgot_password_nonexistent_email(self, client):
+        """Test forgot password with non-existent email."""
+        payload = {"email": "nonexistent@example.com"}
+        response = client.post("/auth/forgot-password", json=payload)
+        # Should still return success to prevent email enumeration
+        assert response.status_code == 200
+
+    def test_reset_password_revokes_sessions(self, client, db_session, person):
+        """Test reset password revokes active sessions."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"resetpwd_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("oldpassword123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        session_one = AuthSession(
+            person_id=person.id,
+            token_hash="session-one-hash",
+            status=SessionStatus.active,
+            ip_address="192.168.1.200",
+            user_agent="client-one",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        session_two = AuthSession(
+            person_id=person.id,
+            token_hash="session-two-hash",
+            status=SessionStatus.active,
+            ip_address="192.168.1.201",
+            user_agent="client-two",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        db_session.add_all([session_one, session_two])
+        db_session.commit()
+
+        reset = auth_flow_service.request_password_reset(db_session, person.email)
+        assert reset is not None
+
+        payload = {"token": reset["token"], "new_password": "newpassword456"}
+        response = client.post("/auth/reset-password", json=payload)
+        assert response.status_code == 200
+
+        sessions = (
+            db_session.query(AuthSession)
+            .filter(AuthSession.person_id == person.id)
+            .all()
+        )
+        assert sessions
+        for session in sessions:
+            assert session.status == SessionStatus.revoked
+            assert session.revoked_at is not None
+
+
+class TestRefreshAPI:
+    """Tests for token refresh endpoint."""
+
+    def test_refresh_invalid_token(self, client):
+        """Test refresh with invalid token."""
+        payload = {"refresh_token": "invalid-refresh-token"}
+        response = client.post("/auth/refresh", json=payload)
+        assert response.status_code == 401
+
+    def test_refresh_missing_token(self, client):
+        """Test refresh without token or cookie."""
+        response = client.post("/auth/refresh", json={})
+        assert response.status_code == 401
+        data = response.json()
+        # Error handler transforms response to {"code": ..., "message": ..., "details": ...}
+        assert (
+            "missing" in data["message"].lower() or "refresh" in data["message"].lower()
+        )
+
+    def test_refresh_v1_with_cookie(self, client, db_session, person):
+        """Test refresh using cookie on v1 endpoint."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"cookieuser_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("password123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        login_payload = {"username": credential.username, "password": "password123"}
+        login_response = client.post("/auth/login", json=login_payload)
+        assert login_response.status_code == 200
+
+        # Get the refresh token cookie and explicitly pass it for v1 endpoint
+        cookie_name = auth_flow_service.AuthFlow.refresh_cookie_settings()["key"]
+        refresh_token = client.cookies.get(cookie_name)
+        assert refresh_token
+
+        # Use the refresh token in body since cookie may not be auto-passed to different path
+        response = client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+
+    def test_refresh_reuse_detected(self, client, db_session, person):
+        """Test refresh token reuse detection via API."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"reuseuser_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("password123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        login_payload = {"username": credential.username, "password": "password123"}
+        login_response = client.post("/auth/login", json=login_payload)
+        assert login_response.status_code == 200
+
+        cookie_name = auth_flow_service.AuthFlow.refresh_cookie_settings()["key"]
+        old_refresh = client.cookies.get(cookie_name)
+        assert old_refresh
+
+        refresh_response = client.post("/auth/refresh", json={})
+        assert refresh_response.status_code == 200
+        new_refresh = client.cookies.get(cookie_name)
+        assert new_refresh
+        assert new_refresh != old_refresh
+
+        reuse_response = client.post(
+            "/auth/refresh", json={"refresh_token": old_refresh}
+        )
+        assert reuse_response.status_code == 401
+        data = reuse_response.json()
+        # Error handler transforms response to {"code": ..., "message": ..., "details": ...}
+        assert "reuse" in data["message"].lower()
+
+        session = (
+            db_session.query(AuthSession)
+            .filter(AuthSession.person_id == person.id)
+            .first()
+        )
+        assert session is not None
+        assert session.status == SessionStatus.revoked
+        assert session.revoked_at is not None
+
+
+class TestLogoutAPI:
+    """Tests for logout endpoint."""
+
+    def test_logout_invalid_token(self, client):
+        """Test logout with invalid token."""
+        payload = {"refresh_token": "invalid-refresh-token"}
+        response = client.post("/auth/logout", json=payload)
+        assert response.status_code in [401, 404]
+
+
+class TestMFAAPI:
+    """Tests for MFA-related endpoints."""
+
+    def test_mfa_setup(self, client, db_session, person, auth_headers):
+        """Test MFA setup."""
+        payload = {"person_id": str(person.id), "label": "Test Device"}
+        response = client.post("/auth/mfa/setup", json=payload, headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "secret" in data or "provisioning_uri" in data or "method_id" in data
+
+    def test_mfa_setup_forbidden(self, client, db_session, person, auth_headers):
+        """Test MFA setup for a different user."""
+        other_person = Person(
+            first_name="Other",
+            last_name="User",
+            email=f"other_{uuid.uuid4().hex[:8]}@example.com",
+        )
+        db_session.add(other_person)
+        db_session.commit()
+
+        payload = {"person_id": str(other_person.id), "label": "Other Device"}
+        response = client.post("/auth/mfa/setup", json=payload, headers=auth_headers)
+        assert response.status_code == 403
+
+    def test_mfa_confirm_invalid(self, client, auth_headers):
+        """Test MFA confirm with invalid method."""
+        payload = {"method_id": str(uuid.uuid4()), "code": "123456"}
+        response = client.post("/auth/mfa/confirm", json=payload, headers=auth_headers)
+        assert response.status_code in [400, 404]
+
+    def test_mfa_confirm_wrong_user(self, client, db_session, person, auth_headers):
+        """Test MFA confirm with method owned by a different user."""
+        other_person = Person(
+            first_name="Other",
+            last_name="User",
+            email=f"other_{uuid.uuid4().hex[:8]}@example.com",
+        )
+        db_session.add(other_person)
+        db_session.commit()
+        db_session.refresh(other_person)
+
+        setup = auth_flow_service.auth_flow.mfa_setup(
+            db_session, str(other_person.id), label="Other Device"
+        )
+        payload = {"method_id": str(setup["method_id"]), "code": "123456"}
+        response = client.post("/auth/mfa/confirm", json=payload, headers=auth_headers)
+        assert response.status_code == 404
+
+    def test_mfa_verify_invalid_token(self, client):
+        """Test MFA verify with invalid token."""
+        payload = {"mfa_token": "invalid-mfa-token", "code": "123456"}
+        response = client.post("/auth/mfa/verify", json=payload)
+        assert response.status_code in [401, 404]
+
+
+class TestAuthFlowAPIV1:
+    """Tests for the /api/v1/auth endpoints."""
+
+    def test_login_v1(self, client, db_session, person):
+        """Test login via v1 API."""
+        credential = UserCredential(
+            person_id=person.id,
+            username=f"v1login_{uuid.uuid4().hex[:8]}",
+            password_hash=hash_password("password123"),
+            is_active=True,
+        )
+        db_session.add(credential)
+        db_session.commit()
+
+        payload = {"username": credential.username, "password": "password123"}
+        response = client.post("/api/v1/auth/login", json=payload)
+        assert response.status_code == 200
+
+    def test_get_me_v1(self, client, auth_headers):
+        """Test get me via v1 API."""
+        response = client.get("/api/v1/auth/me", headers=auth_headers)
+        assert response.status_code == 200
+
+    def test_forgot_password_v1(self, client):
+        """Test forgot password via v1 API."""
+        payload = {"email": "test@example.com"}
+        response = client.post("/api/v1/auth/forgot-password", json=payload)
+        assert response.status_code == 200

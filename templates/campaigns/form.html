@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/form_macros.html" import text_input, textarea, select_field, submit_button %}
+
+{% block page_title %}{{ 'Edit Campaign' if mode == 'edit' else 'Create Campaign' }}{% endblock %}
+
+{% block admin_content %}
+<div class="max-w-2xl">
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display mb-6">
+        {{ 'Edit Campaign' if mode == 'edit' else 'Create Campaign' }}
+    </h1>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        <form method="POST" class="space-y-5">
+            {{ request.state.csrf_form | safe }}
+
+            {{ text_input("name", "Campaign Name", value=campaign.name if campaign is defined and campaign.name else '', required=true, placeholder="e.g. Q1 Product Launch") }}
+
+            {{ textarea("description", "Description", value=campaign.description if campaign is defined and campaign.description else '', rows=4, placeholder="Describe the campaign goals and scope...") }}
+
+            {% set status_options = [
+                {"value": "draft", "label": "Draft"},
+                {"value": "active", "label": "Active"},
+                {"value": "paused", "label": "Paused"},
+                {"value": "completed", "label": "Completed"},
+                {"value": "archived", "label": "Archived"},
+            ] %}
+            {{ select_field("status", "Status", status_options, selected=campaign.status | string if campaign is defined and campaign.status else 'draft') }}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {{ text_input("start_date", "Start Date", value=campaign.start_date.strftime('%Y-%m-%d') if campaign is defined and campaign.start_date else '', type="date") }}
+                {{ text_input("end_date", "End Date", value=campaign.end_date.strftime('%Y-%m-%d') if campaign is defined and campaign.end_date else '', type="date") }}
+            </div>
+
+            {{ submit_button(label='Update Campaign' if mode == 'edit' else 'Create Campaign', cancel_url='/campaigns') }}
+        </form>
+    </div>
+</div>
+{% endblock %}

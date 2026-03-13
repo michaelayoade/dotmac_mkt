@@ -1,0 +1,34 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Add Person' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Create a new person record</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/people/create">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{ forms.text_input('first_name', 'First Name', required=true, placeholder='Enter first name') }}
+            {{ forms.text_input('last_name', 'Last Name', required=true, placeholder='Enter last name') }}
+            {{ forms.text_input('email', 'Email', type='email', required=true, placeholder='email@example.com') }}
+            {{ forms.text_input('phone', 'Phone', type='tel', placeholder='+1 (555) 000-0000') }}
+            {{ forms.select_field('status', 'Status', [
+                {'value': 'active', 'label': 'Active'},
+                {'value': 'inactive', 'label': 'Inactive'},
+                {'value': 'archived', 'label': 'Archived'}
+            ], selected='active', required=true) }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.checkbox('is_active', 'Is Active', checked=true) }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Create Person', '/admin/people') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/table_macros.html" import status_badge, empty_state, pagination %}
+
+{% block page_title %}Campaigns{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-4">
+    {# Header + New button #}
+    <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Campaigns</h1>
+        <a href="/campaigns/new" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Campaign
+        </a>
+    </div>
+
+    {# Search + Filter bar #}
+    <div class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1">
+            <input type="text"
+                   name="q"
+                   value="{{ q if q else '' }}"
+                   placeholder="Search campaigns..."
+                   hx-get="/campaigns"
+                   hx-trigger="input changed delay:300ms"
+                   hx-target="#results-container"
+                   hx-push-url="true"
+                   class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" />
+        </div>
+        <select name="status"
+                hx-get="/campaigns"
+                hx-trigger="change"
+                hx-target="#results-container"
+                hx-push-url="true"
+                class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
+            <option value="">All Statuses</option>
+            <option value="draft" {{ 'selected' if status_filter is defined and status_filter == 'draft' else '' }}>Draft</option>
+            <option value="active" {{ 'selected' if status_filter is defined and status_filter == 'active' else '' }}>Active</option>
+            <option value="paused" {{ 'selected' if status_filter is defined and status_filter == 'paused' else '' }}>Paused</option>
+            <option value="completed" {{ 'selected' if status_filter is defined and status_filter == 'completed' else '' }}>Completed</option>
+            <option value="archived" {{ 'selected' if status_filter is defined and status_filter == 'archived' else '' }}>Archived</option>
+        </select>
+    </div>
+
+    {# Results table #}
+    <div id="results-container" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Start Date</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">End Date</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Posts</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tasks</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for campaign in campaigns %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-3">
+                            <a href="/campaigns/{{ campaign.id }}" class="text-sm font-medium text-slate-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
+                                {{ campaign.name if campaign.name else '' }}
+                            </a>
+                        </td>
+                        <td class="px-4 py-3">
+                            {{ status_badge(campaign.status | string if campaign.status else '') }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                            {{ campaign.start_date.strftime('%b %d, %Y') if campaign.start_date else '-' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                            {{ campaign.end_date.strftime('%b %d, %Y') if campaign.end_date else '-' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                            {{ campaign.posts_count if campaign.posts_count is defined else 0 }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                            {{ campaign.tasks_count if campaign.tasks_count is defined else 0 }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6">
+                            {{ empty_state("No campaigns found", "/campaigns/new", "New Campaign") }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ pagination(page if page is defined else 1, total_pages if total_pages is defined else 1, "/campaigns") }}
+    </div>
+</div>
+{% endblock %}

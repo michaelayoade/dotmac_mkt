@@ -1,0 +1,78 @@
+services:
+  app:
+    build: .
+    container_name: dotmac_mkt_app
+    restart: unless-stopped
+    ports:
+      - "8009:8001"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/dotmac_mkt}
+      REDIS_URL: ${REDIS_URL:-redis://:redis@redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://:redis@redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:redis@redis:6379/1}
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./app:/app/app
+      - ./templates:/app/templates
+      - ./static:/app/static
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+
+  worker:
+    build: .
+    container_name: dotmac_mkt_worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/dotmac_mkt}
+      REDIS_URL: ${REDIS_URL:-redis://:redis@redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://:redis@redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:redis@redis:6379/1}
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    command: ["celery", "-A", "app.celery_app", "worker", "-l", "info"]
+
+  beat:
+    build: .
+    container_name: dotmac_mkt_beat
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/dotmac_mkt}
+      REDIS_URL: ${REDIS_URL:-redis://:redis@redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://:redis@redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:redis@redis:6379/1}
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    command: ["celery", "-A", "app.celery_app", "beat", "-l", "info"]
+
+  db:
+    image: postgres:16
+    container_name: dotmac_mkt_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dotmac_mkt}
+    ports:
+      - "127.0.0.1:5439:5432"
+    volumes:
+      - dotmac_mkt_db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: dotmac_mkt_redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-redis}"]
+    ports:
+      - "127.0.0.1:6389:6379"
+
+volumes:
+  dotmac_mkt_db_data:

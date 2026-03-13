@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, sortable_th, status_badge %}
+
+{% block content %}
+  {% set brand_name = brand.name | default("Starter Template") %}
+  {% set brand_tagline = brand.tagline | default("FastAPI starter", true) %}
+  {% set brand_logo_url = brand.logo_url | default("", true) %}
+  {% set brand_mark = brand.mark | default("ST") %}
+  <main class="mx-auto max-w-5xl px-6 py-16 bg-noise bg-mesh min-h-screen">
+    <div class="stagger-in rounded-3xl bg-white p-10 shadow-xl shadow-slate-200/40 dark:bg-slate-800 dark:shadow-slate-900/40 card-hover">
+      <div class="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.3em] text-primary-600 dark:text-primary-400">
+            Starter Dashboard
+          </p>
+          <h1 class="mt-4 text-4xl font-bold leading-tight text-slate-900 dark:text-white md:text-5xl font-display tracking-tight">
+            Kickstart your
+            <span class="bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">next project.</span>
+          </h1>
+          <p class="mt-4 max-w-2xl text-lg text-slate-600 dark:text-slate-300">
+            A clean FastAPI base with auth, roles, settings, and task scheduling to
+            build on with your own domain models.
+          </p>
+        </div>
+        <div
+          class="stagger-in rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 p-6 dark:border-slate-700 dark:from-slate-700 dark:to-slate-800"
+          x-data="demoCounter"
+        >
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Active people</p>
+          <p class="mt-2 text-3xl font-bold text-slate-900 dark:text-white font-display counter-animate" x-text="count"></p>
+          <button
+            class="mt-4 inline-flex items-center rounded-full bg-gradient-to-r from-primary-600 to-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-primary-500/25 btn-hover hover:shadow-primary-500/40"
+            x-on:click="increment()"
+          >
+            Add person
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-12 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div class="stagger-in rounded-2xl border border-slate-200 p-6 dark:border-slate-700 card-hover">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white font-display">Latest people</h2>
+            <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+              Updated
+            </span>
+          </div>
+          <div class="mt-4 overflow-hidden rounded-xl border border-slate-100 dark:border-slate-700">
+            <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-slate-700">
+              <thead class="bg-slate-50 dark:bg-slate-800/70">
+                <tr>
+                  {{ sortable_th("Last Name", "last_name", sort, dir, "/", {"page": page}) }}
+                  {{ sortable_th("Email", "email", sort, dir, "/", {"page": page}) }}
+                  {{ sortable_th("Created", "created_at", sort, dir, "/", {"page": page}) }}
+                  <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                {% for person in people %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td class="px-4 py-2 text-slate-700 dark:text-slate-200">{{ person.last_name }}</td>
+                  <td class="px-4 py-2 text-slate-700 dark:text-slate-200">{{ person.email }}</td>
+                  <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ person.created_at | format_datetime }}</td>
+                  <td class="px-4 py-2">{{ status_badge(person.status.value if person.status else "active") }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="4" class="px-4 py-10 text-center text-slate-500 dark:text-slate-400">
+                    No people yet.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {{ pagination(page, total_pages, "/", {"sort": sort, "dir": dir}) }}
+          </div>
+        </div>
+        <div class="grid gap-4">
+          <div class="stagger-in group rounded-2xl border border-slate-200 p-6 dark:border-slate-700 card-hover bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/40 dark:to-primary-800/30 mb-3 transition-transform group-hover:scale-110">
+              <svg class="h-5 w-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white font-display">People + roles</h2>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Manage users, access roles, and API keys in one place.
+            </p>
+          </div>
+          <div class="stagger-in group rounded-2xl border border-slate-200 p-6 dark:border-slate-700 card-hover bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent-100 to-accent-200 dark:from-accent-900/40 dark:to-accent-800/30 mb-3 transition-transform group-hover:scale-110">
+              <svg class="h-5 w-5 text-accent-600 dark:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white font-display">Settings hub</h2>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Centralize configuration with audit-ready settings domains.
+            </p>
+          </div>
+          <div class="stagger-in group rounded-2xl border border-slate-200 p-6 dark:border-slate-700 card-hover bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/40 dark:to-green-800/30 mb-3 transition-transform group-hover:scale-110">
+              <svg class="h-5 w-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white font-display">Scheduled tasks</h2>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Add recurring jobs and background work with Celery.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <div id="branding" class="stagger-in rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 dark:border-slate-700 dark:from-slate-800 dark:to-slate-800/60">
+          <div class="flex items-start justify-between gap-6">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white font-display">Branding</h2>
+              <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                Build and apply your own color system, fonts, and logo without redeploys.
+              </p>
+            </div>
+            <span class="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+              THEME
+            </span>
+          </div>
+          <div class="mt-5 flex items-center gap-4">
+            {% if brand_logo_url %}
+              <img src="{{ brand_logo_url }}" alt="{{ brand_name }} logo" class="h-14 w-14 rounded-2xl object-cover shadow-lg shadow-primary-500/20" />
+            {% else %}
+              <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 via-primary-600 to-accent-500 text-base font-semibold uppercase text-white shadow-lg shadow-primary-500/30">
+                {{ brand_mark }}
+              </div>
+            {% endif %}
+            <div>
+              <p class="text-base font-semibold text-slate-900 dark:text-white">{{ brand_name }}</p>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ brand_tagline }}</p>
+            </div>
+          </div>
+          <div class="mt-5 rounded-xl border border-slate-100 bg-white/70 p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+            <div class="flex flex-col gap-2 font-mono">
+              <div>Primary={{ branding.primary_color if branding is defined else "#06B6D4" }}</div>
+              <div>Accent={{ branding.accent_color if branding is defined else "#F97316" }}</div>
+              <div>Display Font={{ branding.font_family_display if branding is defined else "Outfit" }}</div>
+            </div>
+          </div>
+          <a href="/settings/branding" class="mt-4 inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-300">
+            Open theme builder &rarr;
+          </a>
+        </div>
+
+        <div id="avatar" class="stagger-in rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800" data-avatar-uploader data-avatar-endpoint="/auth/me/avatar">
+          <div class="flex items-start justify-between gap-6">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white font-display">Avatar upload</h2>
+              <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                Upload a profile image using your access token. Supports PNG, JPG, GIF, and WEBP.
+              </p>
+            </div>
+            <span class="rounded-full bg-accent-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-accent-700 dark:bg-accent-900/40 dark:text-accent-300">
+              AUTH
+            </span>
+          </div>
+          <div class="mt-5 flex flex-col gap-6 md:flex-row md:items-center">
+            <div class="flex items-center gap-4">
+              <div class="relative h-20 w-20">
+                <img data-avatar-preview alt="Avatar preview" class="hidden h-20 w-20 rounded-full object-cover shadow-lg shadow-slate-200/50 dark:shadow-slate-900/40" />
+                <div data-avatar-placeholder class="flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs font-semibold uppercase text-slate-400 dark:border-slate-600 dark:text-slate-500">
+                  No avatar
+                </div>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                Max size: 2MB
+                <br />
+                Recommended: 400x400
+              </div>
+            </div>
+            <div class="flex-1 space-y-3">
+              <div>
+                <label for="avatar-token" class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Access token
+                </label>
+                <input
+                  id="avatar-token"
+                  type="password"
+                  autocomplete="off"
+                  data-avatar-token
+                  placeholder="Paste access token from /auth/login"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-primary-400 dark:focus:ring-primary-500/30"
+                />
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <label class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600 shadow-sm transition hover:border-primary-300 hover:text-primary-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-500/60 dark:hover:text-primary-300">
+                  Select image
+                  <input type="file" accept="image/*" data-avatar-file class="sr-only" />
+                </label>
+                <button type="button" data-avatar-upload class="rounded-full bg-gradient-to-r from-primary-600 to-primary-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-lg shadow-primary-500/25 btn-hover">
+                  Upload
+                </button>
+                <button type="button" data-avatar-delete class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 transition hover:border-accent-300 hover:text-accent-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-accent-500/60 dark:hover:text-accent-300">
+                  Remove
+                </button>
+              </div>
+              <p data-avatar-status class="text-xs text-slate-500 dark:text-slate-400">
+                No upload yet. Use the API token for authenticated requests.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock %}

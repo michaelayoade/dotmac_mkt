@@ -1,0 +1,46 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Add Price' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Create a new price</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/billing/prices/create">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{ forms.select_field('product_id', 'Product', products, required=true) }}
+            {{ forms.text_input('currency', 'Currency', required=true, placeholder='usd') }}
+            {{ forms.text_input('unit_amount', 'Unit Amount (cents)', type='number', required=true, placeholder='1000', help_text='Amount in cents (e.g. 1000 = $10.00)') }}
+            {{ forms.select_field('type', 'Type', [
+                {'value': 'one_time', 'label': 'One Time'},
+                {'value': 'recurring', 'label': 'Recurring'}
+            ], required=true) }}
+            {{ forms.select_field('billing_scheme', 'Billing Scheme', [
+                {'value': 'per_unit', 'label': 'Per Unit'},
+                {'value': 'tiered', 'label': 'Tiered'}
+            ]) }}
+            {{ forms.select_field('recurring_interval', 'Recurring Interval', [
+                {'value': '', 'label': '-- Select --'},
+                {'value': 'day', 'label': 'Day'},
+                {'value': 'week', 'label': 'Week'},
+                {'value': 'month', 'label': 'Month'},
+                {'value': 'year', 'label': 'Year'}
+            ]) }}
+            {{ forms.text_input('recurring_interval_count', 'Interval Count', type='number', placeholder='1', help_text='Number of intervals between billings') }}
+            {{ forms.text_input('trial_period_days', 'Trial Period Days', type='number', placeholder='0') }}
+            {{ forms.text_input('lookup_key', 'Lookup Key', placeholder='Optional lookup key') }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.checkbox('is_active', 'Is Active', checked=true) }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Create Price', '/admin/billing/prices') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

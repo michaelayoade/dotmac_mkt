@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.mypy_cache
+.ruff_cache
+.pytest_cache
+htmlcov
+.coverage
+coverage.xml
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+
+# CI/CD
+.github
+
+# Pre-commit
+.pre-commit-config.yaml
+.secrets.baseline
+
+# Documentation
+*.md
+!README.md
+LICENSE
+
+# Node (if using Tailwind build)
+node_modules
+package-lock.json
+
+# Misc
+*.log
+*.tmp

@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/form_macros.html" import text_input, submit_button %}
+
+{% block page_title %}Settings{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6 max-w-3xl">
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Settings</h1>
+
+    {# Google Drive #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Google Drive Integration</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Connect your Google Drive to sync marketing assets.</p>
+        </div>
+        <form method="POST" action="/settings/drive" class="p-5 space-y-4">
+            {{ request.state.csrf_form | safe }}
+
+            {{ text_input("drive_folder_id", "Drive Folder ID", value=settings.drive_folder_id if settings is defined and settings.drive_folder_id else '', placeholder="e.g. 1A2B3C4D5E6F7G8H9I0J", help_text="The Google Drive folder ID where marketing assets are stored.") }}
+
+            <div class="flex items-center gap-3">
+                <button type="submit" class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+                    Save Drive Settings
+                </button>
+                <button type="button"
+                        hx-post="/settings/drive/test"
+                        hx-target="#drive-test-result"
+                        hx-swap="innerHTML"
+                        class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700">
+                    Test Connection
+                </button>
+            </div>
+            <div id="drive-test-result"></div>
+        </form>
+    </div>
+
+    {# CRM Connection #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">CRM Connection</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Connect to your DotMac CRM for lead tracking and contact sync.</p>
+        </div>
+        <form method="POST" action="/settings/crm" class="p-5 space-y-4">
+            {{ request.state.csrf_form | safe }}
+
+            {{ text_input("crm_base_url", "CRM Base URL", value=settings.crm_base_url if settings is defined and settings.crm_base_url else '', placeholder="e.g. https://crm.dotmac.ng", help_text="The base URL of your DotMac CRM instance.") }}
+
+            {{ text_input("crm_api_key", "CRM API Key", value=settings.crm_api_key if settings is defined and settings.crm_api_key else '', type="password", placeholder="Enter API key", help_text="Used to authenticate requests to the CRM API.") }}
+
+            {{ submit_button(label="Save CRM Settings") }}
+        </form>
+    </div>
+
+    {# Channel API Keys #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Channel API Keys</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage API credentials for connected marketing channels.</p>
+        </div>
+        <form method="POST" action="/settings/channels" class="p-5 space-y-4">
+            {{ request.state.csrf_form | safe }}
+
+            <div class="space-y-4">
+                {% set channel_fields = [
+                    {"name": "meta_app_id", "label": "Meta App ID"},
+                    {"name": "meta_app_secret", "label": "Meta App Secret"},
+                    {"name": "twitter_api_key", "label": "Twitter API Key"},
+                    {"name": "twitter_api_secret", "label": "Twitter API Secret"},
+                    {"name": "linkedin_client_id", "label": "LinkedIn Client ID"},
+                    {"name": "linkedin_client_secret", "label": "LinkedIn Client Secret"},
+                    {"name": "google_ads_client_id", "label": "Google Ads Client ID"},
+                    {"name": "google_analytics_property_id", "label": "Google Analytics Property ID"},
+                ] %}
+                {% for field in channel_fields %}
+                {{ text_input(
+                    field.name,
+                    field.label,
+                    value=channel_settings[field.name] if channel_settings is defined and field.name in channel_settings and channel_settings[field.name] else '',
+                    type='password' if 'secret' in field.name else 'text',
+                    placeholder='Enter ' ~ field.label | lower
+                ) }}
+                {% endfor %}
+            </div>
+
+            {{ submit_button(label="Save Channel Settings") }}
+        </form>
+    </div>
+</div>
+{% endblock %}

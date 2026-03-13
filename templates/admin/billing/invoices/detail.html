@@ -1,0 +1,121 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Invoice Detail' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Viewing invoice record</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="/admin/billing/invoices" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Back to List
+        </a>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Number</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.number if invoice.number else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Customer</label>
+            <p class="text-sm text-slate-900 dark:text-white">
+                {% if invoice.customer %}
+                <a href="/admin/billing/customers/{{ invoice.customer.id }}" class="text-primary-600 dark:text-primary-400 hover:underline">{{ invoice.customer.name if invoice.customer.name else invoice.customer.email }}</a>
+                {% else %}
+                -
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Subscription</label>
+            <p class="text-sm text-slate-900 dark:text-white">
+                {% if invoice.subscription %}
+                <a href="/admin/billing/subscriptions/{{ invoice.subscription.id }}" class="text-primary-600 dark:text-primary-400 hover:underline">View Subscription</a>
+                {% else %}
+                -
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Status</label>
+            <p class="text-sm">{{ invoice.status | replace('_', ' ') | title if invoice.status else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.currency if invoice.currency else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Subtotal</label>
+            <p class="text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(invoice.subtotal / 100) if invoice.subtotal else '0.00' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Tax</label>
+            <p class="text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(invoice.tax / 100) if invoice.tax else '0.00' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Total</label>
+            <p class="text-sm text-slate-900 dark:text-white font-semibold">${{ "%.2f"|format(invoice.total / 100) if invoice.total else '0.00' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Amount Due</label>
+            <p class="text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(invoice.amount_due / 100) if invoice.amount_due else '0.00' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Amount Paid</label>
+            <p class="text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(invoice.amount_paid / 100) if invoice.amount_paid else '0.00' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Due Date</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Paid At</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.paid_at.strftime('%Y-%m-%d %H:%M') if invoice.paid_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">External ID</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.external_id if invoice.external_id else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Created</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.created_at | timeago if invoice.created_at else '-' }}</p>
+        </div>
+        <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Updated</label>
+            <p class="text-sm text-slate-900 dark:text-white">{{ invoice.updated_at | timeago if invoice.updated_at else '-' }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Line Items -->
+<div class="mt-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Line Items</h2>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {% if line_items %}
+        <table class="w-full">
+            {{ tables.table_header([
+                {'label': 'Description'},
+                {'label': 'Quantity'},
+                {'label': 'Unit Amount'},
+                {'label': 'Amount'}
+            ]) }}
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                {% for item in line_items %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">{{ item.description if item.description else '-' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ item.quantity if item.quantity else '-' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">${{ "%.2f"|format(item.unit_amount / 100) if item.unit_amount else '0.00' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-900 dark:text-white font-medium">${{ "%.2f"|format(item.amount / 100) if item.amount else '0.00' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {{ tables.empty_state('No line items found') }}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

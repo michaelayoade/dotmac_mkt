@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'People' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage people in the system</p>
+    </div>
+    <a href="/admin/people/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Person
+    </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if people %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Name'},
+            {'label': 'Email'},
+            {'label': 'Status'},
+            {'label': 'Created'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for person in people %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        {% if person.avatar_url %}
+                        <img src="{{ person.avatar_url }}" alt="" class="w-8 h-8 rounded-full object-cover" />
+                        {% else %}
+                        <div class="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 dark:text-primary-400 text-xs font-semibold">
+                            {{ (person.first_name[0] if person.first_name else '') }}{{ (person.last_name[0] if person.last_name else '') }}
+                        </div>
+                        {% endif %}
+                        <span class="text-sm font-medium text-slate-900 dark:text-white">{{ person.first_name if person.first_name else '' }} {{ person.last_name if person.last_name else '' }}</span>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ person.email if person.email else '' }}</td>
+                <td class="px-4 py-3">
+                    {{ tables.status_badge(person.status.value if person.status else '') }}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ person.created_at | timeago }}</td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        edit_url='/admin/people/' ~ person.id ~ '/edit',
+                        delete_url='/admin/people/' ~ person.id ~ '/delete',
+                        detail_url='/admin/people/' ~ person.id,
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/people') }}
+    {% else %}
+    {{ tables.empty_state('No people found', '/admin/people/create', 'Add Person') }}
+    {% endif %}
+</div>
+{% endblock %}

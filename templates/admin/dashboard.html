@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% block page_title %}Dashboard{% endblock %}
+{% block admin_content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% set cards = [
+        {"label": "People", "value": stats.people, "href": "/admin/people", "icon": "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197", "color": "primary"},
+        {"label": "Roles", "value": stats.roles, "href": "/admin/roles", "icon": "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", "color": "accent"},
+        {"label": "Scheduled Tasks", "value": stats.tasks, "href": "/admin/scheduler", "icon": "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z", "color": "primary"},
+        {"label": "File Uploads", "value": stats.uploads, "href": "/admin/file-uploads", "icon": "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5", "color": "accent"},
+        {"label": "Audit Events", "value": stats.audit, "href": "/admin/audit", "icon": "M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08", "color": "primary"},
+        {"label": "Unread Notifications", "value": stats.notifications, "href": "/admin/notifications", "icon": "M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0", "color": "accent"},
+    ] %}
+    {% for card in cards %}
+    <a href="{{ card.href }}" class="stagger-in card-hover block bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 group">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ card.label }}</p>
+                <p class="text-3xl font-bold text-slate-900 dark:text-white mt-1 counter-animate">{{ card.value }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center {{ 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400' if card.color == 'primary' else 'bg-accent-100 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400' }}">
+                <svg class="w-6 h-6 icon-hover-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ card.icon }}" />
+                </svg>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<div class="mt-8">
+    <h3 class="text-lg font-semibold text-slate-900 dark:text-white font-display mb-4">Quick Actions</h3>
+    <div class="flex flex-wrap gap-3">
+        <a href="/admin/people/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition btn-hover">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            Add Person
+        </a>
+        <a href="/admin/roles/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            Add Role
+        </a>
+        <a href="/admin/file-uploads/upload" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+            Upload File
+        </a>
+        <a href="/settings/branding" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+            Branding
+        </a>
+    </div>
+</div>
+{% endblock %}

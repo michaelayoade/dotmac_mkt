@@ -1,0 +1,87 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'File Uploads' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage uploaded files and documents</p>
+    </div>
+    <a href="/admin/file-uploads/upload" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        Upload File
+    </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if uploads %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Filename'},
+            {'label': 'Type'},
+            {'label': 'Size'},
+            {'label': 'Category'},
+            {'label': 'Uploaded'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for upload in uploads %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        {% set ext = upload.filename.rsplit('.', 1)[-1] | lower if upload.filename and '.' in upload.filename else '' %}
+                        {% set icon_colors = {
+                            'pdf': 'text-red-500',
+                            'doc': 'text-blue-500', 'docx': 'text-blue-500',
+                            'xls': 'text-green-500', 'xlsx': 'text-green-500',
+                            'png': 'text-purple-500', 'jpg': 'text-purple-500', 'jpeg': 'text-purple-500', 'gif': 'text-purple-500',
+                            'svg': 'text-orange-500'
+                        } %}
+                        <svg class="w-5 h-5 {{ icon_colors.get(ext, 'text-slate-400') }} flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span class="text-sm font-medium text-slate-900 dark:text-white truncate max-w-xs">{{ upload.filename if upload.filename else '' }}</span>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ upload.content_type if upload.content_type else '-' }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    {% if upload.file_size %}
+                        {% if upload.file_size > 1048576 %}
+                            {{ '%.1f' | format(upload.file_size / 1048576) }} MB
+                        {% elif upload.file_size > 1024 %}
+                            {{ '%.1f' | format(upload.file_size / 1024) }} KB
+                        {% else %}
+                            {{ upload.file_size }} B
+                        {% endif %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if upload.category %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">
+                        {{ upload.category.value | replace('_', ' ') | title if upload.category.value is defined else upload.category | replace('_', ' ') | title }}
+                    </span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ upload.created_at | timeago }}</td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        delete_url='/admin/file-uploads/' ~ upload.id ~ '/delete',
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/file-uploads') }}
+    {% else %}
+    {{ tables.empty_state('No files uploaded', '/admin/file-uploads/upload', 'Upload File') }}
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Roles' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage roles and access control</p>
+    </div>
+    <a href="/admin/roles/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Role
+    </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if roles %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Name'},
+            {'label': 'Description'},
+            {'label': 'Members'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for role in roles %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3">
+                    <span class="text-sm font-medium text-slate-900 dark:text-white">{{ role.name if role.name else '' }}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ role.description if role.description else '-' }}</td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">
+                        {{ role.members | length if role.members is defined else 0 }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        edit_url='/admin/roles/' ~ role.id ~ '/edit',
+                        delete_url='/admin/roles/' ~ role.id ~ '/delete',
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/roles') }}
+    {% else %}
+    {{ tables.empty_state('No roles found', '/admin/roles/create', 'Add Role') }}
+    {% endif %}
+</div>
+{% endblock %}

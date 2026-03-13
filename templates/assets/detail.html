@@ -1,0 +1,135 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/table_macros.html" import status_badge, empty_state %}
+
+{% block page_title %}{{ asset.name if asset.name else 'Asset Detail' }}{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    {# Back link #}
+    <a href="/assets" class="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Assets
+    </a>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {# Preview #}
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="aspect-video bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                    {% set image_types = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'] %}
+                    {% set video_types = ['video/mp4', 'video/webm', 'video/ogg'] %}
+                    {% if asset.mime_type in image_types and asset.file_url %}
+                    <img src="{{ asset.file_url }}" alt="{{ asset.name if asset.name else '' }}" class="max-w-full max-h-full object-contain" />
+                    {% elif asset.mime_type in video_types and asset.file_url %}
+                    <video controls class="max-w-full max-h-full">
+                        <source src="{{ asset.file_url }}" type="{{ asset.mime_type }}">
+                        Your browser does not support the video tag.
+                    </video>
+                    {% else %}
+                    <div class="text-center">
+                        <svg class="w-16 h-16 mx-auto text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{{ asset.mime_type if asset.mime_type else 'Unknown file type' }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="p-4 border-t border-slate-200 dark:border-slate-700">
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{{ asset.name if asset.name else '' }}</h2>
+                </div>
+            </div>
+        </div>
+
+        {# Metadata sidebar #}
+        <div class="space-y-4">
+            {# Details card #}
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Details</h3>
+
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 dark:text-slate-400">Type</span>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ asset.asset_type | replace('_', ' ') | title if asset.asset_type else 'Unknown' }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 dark:text-slate-400">Size</span>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ asset.file_size_display if asset.file_size_display is defined else '-' }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 dark:text-slate-400">MIME Type</span>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ asset.mime_type if asset.mime_type else '-' }}</span>
+                    </div>
+                </div>
+
+                {# Drive status #}
+                {% set drive_status_map = {
+                    'synced': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                    'missing': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                    'access_denied': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                    'not_linked': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+                } %}
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-slate-500 dark:text-slate-400">Drive Status</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ drive_status_map.get(asset.drive_status if asset.drive_status is defined and asset.drive_status else 'not_linked', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
+                        {{ asset.drive_status | replace('_', ' ') | title if asset.drive_status is defined and asset.drive_status else 'Not Linked' }}
+                    </span>
+                </div>
+                {% if asset.drive_status is defined and asset.drive_status in ['missing', 'access_denied'] %}
+                <div class="p-2.5 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+                    <p class="text-xs text-yellow-700 dark:text-yellow-400">
+                        {% if asset.drive_status == 'missing' %}
+                        The linked Google Drive file could not be found. It may have been deleted or moved.
+                        {% elif asset.drive_status == 'access_denied' %}
+                        Access to the linked Google Drive file was denied. Check sharing permissions.
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            {# Tags #}
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Tags</h3>
+                <div class="flex flex-wrap gap-1.5">
+                    {% for tag in asset.tags if asset.tags is defined %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-600 dark:text-slate-400">
+                        {{ tag }}
+                    </span>
+                    {% else %}
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No tags</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Linked campaigns #}
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Linked Campaigns</h3>
+                <div class="space-y-1.5">
+                    {% for campaign in linked_campaigns if linked_campaigns is defined %}
+                    <a href="/campaigns/{{ campaign.id }}" class="block text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                        {{ campaign.name if campaign.name else '' }}
+                    </a>
+                    {% else %}
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Not linked to any campaigns.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Actions #}
+            <div class="flex gap-2">
+                <a href="/assets/{{ asset.id }}/edit" class="flex-1 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium text-center hover:bg-slate-50 dark:hover:bg-slate-700">
+                    Edit
+                </a>
+                <form method="POST" action="/assets/{{ asset.id }}/delete" onsubmit="return confirm('Delete this asset?');" class="flex-1">
+                    {{ request.state.csrf_form | safe }}
+                    <button type="submit" class="w-full px-4 py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

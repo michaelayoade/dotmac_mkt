@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Entitlements' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage product entitlements</p>
+    </div>
+    <a href="/admin/billing/entitlements/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Entitlement
+    </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if entitlements %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Product'},
+            {'label': 'Feature Key'},
+            {'label': 'Value Type'},
+            {'label': 'Value'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for entitlement in entitlements %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ entitlement.product.name if entitlement.product else '-' }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-xs">{{ entitlement.feature_key if entitlement.feature_key else '' }}</code>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ entitlement.value_type | replace('_', ' ') | title if entitlement.value_type else '-' }}</td>
+                <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                    {% if entitlement.value_numeric is not none %}
+                    {{ entitlement.value_numeric }}
+                    {% elif entitlement.value_text %}
+                    {{ entitlement.value_text }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        edit_url='/admin/billing/entitlements/' ~ entitlement.id ~ '/edit',
+                        delete_url='/admin/billing/entitlements/' ~ entitlement.id ~ '/delete',
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/billing/entitlements') }}
+    {% else %}
+    {{ tables.empty_state('No entitlements found', '/admin/billing/entitlements/create', 'Add Entitlement') }}
+    {% endif %}
+</div>
+{% endblock %}

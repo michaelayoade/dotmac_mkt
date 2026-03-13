@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Edit Coupon' }}</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Update coupon details</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/admin/billing/coupons/{{ coupon.id }}/edit">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{ forms.text_input('name', 'Name', value=coupon.name, required=true) }}
+            {{ forms.text_input('code', 'Code', value=coupon.code, required=true) }}
+            {{ forms.text_input('percent_off', 'Percent Off', value=coupon.percent_off if coupon.percent_off else '', type='number', help_text='Percentage discount (leave blank if using amount)') }}
+            {{ forms.text_input('amount_off', 'Amount Off (cents)', value=coupon.amount_off if coupon.amount_off else '', type='number', help_text='Amount in cents (leave blank if using percent)') }}
+            {{ forms.text_input('currency', 'Currency', value=coupon.currency if coupon.currency else '', help_text='Required if using amount_off') }}
+            {{ forms.select_field('duration', 'Duration', [
+                {'value': 'once', 'label': 'Once'},
+                {'value': 'repeating', 'label': 'Repeating'},
+                {'value': 'forever', 'label': 'Forever'}
+            ], selected=coupon.duration if coupon.duration else '', required=true) }}
+            {{ forms.text_input('duration_in_months', 'Duration in Months', value=coupon.duration_in_months if coupon.duration_in_months else '', type='number', help_text='Required if duration is repeating') }}
+            {{ forms.text_input('max_redemptions', 'Max Redemptions', value=coupon.max_redemptions if coupon.max_redemptions else '', type='number') }}
+            {{ forms.text_input('redeem_by', 'Redeem By', value=coupon.redeem_by.strftime('%Y-%m-%d') if coupon.redeem_by else '', type='date', help_text='Last date the coupon can be redeemed') }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.checkbox('valid', 'Valid', checked=coupon.valid if coupon.valid is defined else false) }}
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Update Coupon', '/admin/billing/coupons') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

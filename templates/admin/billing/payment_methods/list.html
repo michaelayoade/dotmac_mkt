@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/table_macros.html" as tables %}
+{% block admin_content %}
+{% set csrf = request.state.csrf_token if request.state.csrf_token is defined else '' %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ page_title if page_title else 'Payment Methods' }}</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage customer payment methods</p>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    {% if payment_methods %}
+    <table class="w-full">
+        {{ tables.table_header([
+            {'label': 'Customer'},
+            {'label': 'Type'},
+            {'label': 'Default'},
+            {'label': 'Status'},
+            {'label': 'Created'},
+            {'label': 'Actions', 'class': 'text-right'}
+        ]) }}
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% for pm in payment_methods %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">
+                    {% if pm.customer %}
+                    <a href="/admin/billing/customers/{{ pm.customer.id }}" class="text-primary-600 dark:text-primary-400 hover:underline">{{ pm.customer.name if pm.customer.name else pm.customer.email }}</a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {{ tables.status_badge(pm.type | replace('_', ' ') if pm.type else '') }}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{{ 'Yes' if pm.is_default else 'No' }}</td>
+                <td class="px-4 py-3">
+                    {{ tables.status_badge('active' if pm.is_active else 'inactive') }}
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{{ pm.created_at | timeago if pm.created_at else '-' }}</td>
+                <td class="px-4 py-3 text-right">
+                    {{ tables.action_buttons(
+                        detail_url='/admin/billing/payment-methods/' ~ pm.id,
+                        delete_url='/admin/billing/payment-methods/' ~ pm.id ~ '/delete',
+                        csrf_token=csrf
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{ tables.pagination(page, total_pages, '/admin/billing/payment-methods') }}
+    {% else %}
+    {{ tables.empty_state('No payment methods found') }}
+    {% endif %}
+</div>
+{% endblock %}
