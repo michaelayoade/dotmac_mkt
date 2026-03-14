@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class Settings:
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+psycopg://postgres:postgres@localhost:5439/dotmac_mkt",
+        "postgresql+psycopg://postgres:postgres@localhost:5441/dotmac_mkt",
     )
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     secret_key: str = os.getenv("SECRET_KEY", "")
@@ -67,6 +67,8 @@ class Settings:
 
     # CORS
     cors_origins: str = os.getenv("CORS_ORIGINS", "")  # Comma-separated origins
+    canonical_host: str | None = os.getenv("CANONICAL_HOST") or None
+    canonical_scheme: str = os.getenv("CANONICAL_SCHEME", "https")
 
     # Channel OAuth & Encryption
     encryption_key: str = os.getenv("ENCRYPTION_KEY", "")

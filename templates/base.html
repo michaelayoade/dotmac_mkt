@@ -9,6 +9,9 @@
     {% set csrf_value = csrf_token if csrf_token is defined else (request.state.csrf_token if request is defined and request.state is defined else "") %}
     <meta name="csrf-token" content="{{ csrf_value | default('', true) }}" />
     <title>{% block title %}{{ title | default("Starter Template") }}{% endblock %}</title>
+    {% if canonical_url is defined and canonical_url %}
+    <link rel="canonical" href="{{ canonical_url }}" />
+    {% endif %}
 
     <!-- Custom Fonts: Outfit (display) + Plus Jakarta Sans (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -161,6 +164,11 @@
 <body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 antialiased"
       hx-ext="loading-states">
     {% include "partials/_brand_context.html" %}
+    {% set current_page = current_page | default("home") %}
+    <a href="#main-content"
+       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-slate-900 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white dark:focus:bg-white dark:focus:text-slate-900">
+        Skip to content
+    </a>
 
     {% block body %}
     <div class="relative">
@@ -168,9 +176,9 @@
             <div class="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between">
                 <a href="/" class="flex items-center gap-3">
                     {% if brand_logo_url %}
-                        <img src="{{ brand_logo_url }}" alt="{{ brand_name }} logo" class="h-11 w-11 rounded-xl object-cover shadow-lg shadow-primary-500/20" />
+                        <img src="{{ brand_logo_url }}" alt="{{ brand_name }} logo" width="44" height="44" class="h-11 w-11 rounded-xl object-cover shadow-lg shadow-primary-500/20" />
                     {% else %}
-                        <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 via-primary-600 to-accent-500 text-sm font-semibold uppercase text-white shadow-lg shadow-primary-500/30">
+                        <div aria-hidden="true" class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 via-primary-600 to-accent-500 text-sm font-semibold uppercase text-white shadow-lg shadow-primary-500/30">
                             {{ brand_mark }}
                         </div>
                     {% endif %}
@@ -184,16 +192,19 @@
                     </div>
                 </a>
                 <div class="flex items-center gap-3 text-sm">
-                    <a href="#branding" class="rounded-full border border-slate-200 px-4 py-2 font-medium text-slate-600 transition hover:border-primary-300 hover:text-primary-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary-500/60 dark:hover:text-primary-300">
-                        Branding
+                    <a href="/services" class="rounded-full border px-4 py-2 font-medium transition {% if current_page == 'services' %}border-primary-300 text-primary-600 dark:border-primary-500/60 dark:text-primary-300{% else %}border-slate-200 text-slate-600 hover:border-primary-300 hover:text-primary-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary-500/60 dark:hover:text-primary-300{% endif %}">
+                        Services
                     </a>
-                    <a href="#avatar" class="rounded-full bg-gradient-to-r from-primary-600 to-primary-500 px-4 py-2 font-medium text-white shadow-lg shadow-primary-500/25 btn-hover">
-                        Avatar
+                    <a href="/plans" class="rounded-full border px-4 py-2 font-medium transition {% if current_page == 'plans' %}border-primary-300 text-primary-600 dark:border-primary-500/60 dark:text-primary-300{% else %}border-slate-200 text-slate-600 hover:border-primary-300 hover:text-primary-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary-500/60 dark:hover:text-primary-300{% endif %}">
+                        Plans
+                    </a>
+                    <a href="/contact" class="rounded-full bg-gradient-to-r from-primary-600 to-primary-500 px-4 py-2 font-medium text-white shadow-lg shadow-primary-500/25 btn-hover">
+                        Contact
                     </a>
                 </div>
             </div>
         </header>
-        <main>
+        <main id="main-content" tabindex="-1">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -254,7 +265,8 @@
          x-on:show-toast.window="addToast($event.detail)"
          role="status"
          aria-live="polite"
-         aria-atomic="true"
+         aria-atomic="false"
+         aria-relevant="additions"
          class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         <template x-for="toast in toasts" :key="toast.id">
             <div x-show="toast.visible"
@@ -269,11 +281,11 @@
                      'bg-red-600': isError(toast),
                      'bg-yellow-500': isWarning(toast),
                      'bg-blue-600': isInfo(toast)
-                 }"
+                }"
                  class="px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium pointer-events-auto flex items-center gap-2 max-w-sm">
                 <span x-text="toast.message"></span>
                 <button x-on:click="removeToast(toast.id)" aria-label="Dismiss notification" class="ml-2 hover:opacity-75">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>

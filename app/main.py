@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
@@ -104,6 +104,58 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(ObservabilityMiddleware)
+
+
+def _forwarded_header_value(request: Request, header_name: str) -> str:
+    value = request.headers.get(header_name, "")
+    if not value:
+        return ""
+    return value.split(",")[0].strip()
+
+
+def _request_host(request: Request) -> str:
+    forwarded_host = _forwarded_header_value(request, "x-forwarded-host")
+    raw_host = forwarded_host or request.headers.get("host", "")
+    return raw_host.split(":")[0].strip().lower()
+
+
+def _request_scheme(request: Request) -> str:
+    forwarded_proto = _forwarded_header_value(request, "x-forwarded-proto")
+    return (forwarded_proto or request.url.scheme or "https").lower()
+
+
+@app.middleware("http")
+async def canonical_host_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    canonical_host = (settings.canonical_host or "").strip().lower()
+    if not canonical_host:
+        return await call_next(request)
+
+    request_host = _request_host(request)
+    request_scheme = _request_scheme(request)
+    canonical_scheme = (settings.canonical_scheme or request_scheme).strip().lower()
+    alternate_hosts = {canonical_host.removeprefix("www."), f"www.{canonical_host.removeprefix('www.')}"}
+
+    if request_host and request_host in alternate_hosts and request_host != canonical_host:
+        canonical_url = str(
+            request.url.replace(
+                scheme=canonical_scheme,
+                netloc=canonical_host,
+            )
+        )
+        return RedirectResponse(url=canonical_url, status_code=308)
+
+    if request_host == canonical_host and request_scheme != canonical_scheme:
+        canonical_url = str(
+            request.url.replace(
+                scheme=canonical_scheme,
+                netloc=canonical_host,
+            )
+        )
+        return RedirectResponse(url=canonical_url, status_code=308)
+
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -248,10 +300,13 @@ def _include_api_router(router: object, dependencies: list[Any] | None = None) -
 
 
 from app.api.billing import router as billing_router  # noqa: E402
+from app.api.posts import router as posts_router  # noqa: E402
 from app.api.deps import require_role, require_user_auth  # noqa: E402
 from app.api.file_uploads import router as file_uploads_router  # noqa: E402
 from app.api.notifications import router as notifications_router  # noqa: E402
 from app.api.ws import router as ws_router  # noqa: E402
+from app.web.analytics import router as web_analytics_router  # noqa: E402
+from app.web.assets import router as web_assets_router  # noqa: E402
 from app.web.audit import router as web_audit_router  # noqa: E402
 from app.web.auth import router as web_auth_router  # noqa: E402
 from app.web.billing.coupons import router as web_billing_coupons_router  # noqa: E402
@@ -273,24 +328,22 @@ from app.web.billing.subscriptions import (  # noqa: E402
 from app.web.billing.webhook_events import (  # noqa: E402
     router as web_billing_webhook_events_router,
 )
+from app.web.calendar import router as web_calendar_router  # noqa: E402
+
+# Marketing web routes
+from app.web.campaigns import router as web_campaigns_router  # noqa: E402
+from app.web.channels import router as web_channels_router  # noqa: E402
 from app.web.dashboard import router as web_dashboard_router  # noqa: E402
 from app.web.deps import WebAuthRedirect  # noqa: E402
 from app.web.file_uploads import router as web_file_uploads_router  # noqa: E402
+from app.web.mkt_settings import router as web_mkt_settings_router  # noqa: E402
 from app.web.notifications import router as web_notifications_router  # noqa: E402
 from app.web.people import router as web_people_router  # noqa: E402
 from app.web.permissions import router as web_permissions_router  # noqa: E402
 from app.web.roles import router as web_roles_router  # noqa: E402
 from app.web.scheduler import router as web_scheduler_router  # noqa: E402
 from app.web.settings import router as web_settings_router  # noqa: E402
-
-# Marketing web routes
-from app.web.campaigns import router as web_campaigns_router  # noqa: E402
-from app.web.calendar import router as web_calendar_router  # noqa: E402
-from app.web.assets import router as web_assets_router  # noqa: E402
-from app.web.channels import router as web_channels_router  # noqa: E402
-from app.web.analytics import router as web_analytics_router  # noqa: E402
 from app.web.tasks import router as web_tasks_router  # noqa: E402
-from app.web.mkt_settings import router as web_mkt_settings_router  # noqa: E402
 
 _include_api_router(auth_router, dependencies=[Depends(require_role("admin"))])
 _include_api_router(auth_flow_router)
@@ -302,6 +355,7 @@ _include_api_router(scheduler_router, dependencies=[Depends(require_user_auth)])
 _include_api_router(billing_router, dependencies=[Depends(require_user_auth)])
 _include_api_router(file_uploads_router, dependencies=[Depends(require_user_auth)])
 _include_api_router(notifications_router, dependencies=[Depends(require_user_auth)])
+_include_api_router(posts_router, dependencies=[Depends(require_user_auth)])
 app.include_router(ws_router)
 app.include_router(web_auth_router)
 app.include_router(web_dashboard_router)

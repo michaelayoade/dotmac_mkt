@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request
+import re
+
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -14,21 +16,36 @@ from app.services.branding_context import (
 from app.templates import templates
 
 router = APIRouter()
+NEWSLETTER_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-@router.get("/", tags=["web"], response_class=HTMLResponse)
-def home(
+def _canonical_url(request: Request) -> str:
+    canonical_host = (settings.canonical_host or "").strip()
+    canonical_scheme = (settings.canonical_scheme or request.url.scheme).strip()
+    if canonical_host:
+        return str(
+            request.url.replace(
+                scheme=canonical_scheme,
+                netloc=canonical_host,
+            )
+        )
+    return str(request.url)
+
+
+def _render_home_page(
     request: Request,
-    sort: str = "created_at",
-    dir: str = "desc",
-    page: int = 1,
-    db: Session = Depends(get_db),
+    db: Session,
+    current_page: str,
+    newsletter_email: str = "",
+    newsletter_error: str | None = None,
+    newsletter_success: str | None = None,
+    response_status: int = status.HTTP_200_OK,
 ):
-    page = max(page, 1)
-    order_by = sort if sort in {"created_at", "last_name", "email"} else "created_at"
-    order_dir = dir if dir in {"asc", "desc"} else "desc"
+    page = 1
+    order_by = "created_at"
+    order_dir = "desc"
     limit = 25
-    offset = (page - 1) * limit
+    offset = 0
 
     people = person_service.people.list(
         db=db,
@@ -58,7 +75,63 @@ def home(
             "page": page,
             "total_pages": total_pages,
             "total_people": total_people,
+            "current_page": current_page,
+            "canonical_url": _canonical_url(request),
+            "newsletter_email": newsletter_email,
+            "newsletter_error": newsletter_error,
+            "newsletter_success": newsletter_success,
         },
+        status_code=response_status,
+    )
+
+
+@router.get("/", tags=["web"], response_class=HTMLResponse)
+def home(request: Request, db: Session = Depends(get_db)):
+    return _render_home_page(request=request, db=db, current_page="home")
+
+
+@router.get("/services", tags=["web"], response_class=HTMLResponse)
+def services_page(request: Request, db: Session = Depends(get_db)):
+    return _render_home_page(request=request, db=db, current_page="services")
+
+
+@router.get("/plans", tags=["web"], response_class=HTMLResponse)
+def plans_page(request: Request, db: Session = Depends(get_db)):
+    return _render_home_page(request=request, db=db, current_page="plans")
+
+
+@router.get("/contact", tags=["web"], response_class=HTMLResponse)
+def contact_page(request: Request, db: Session = Depends(get_db)):
+    return _render_home_page(request=request, db=db, current_page="contact")
+
+
+@router.post("/contact/newsletter", tags=["web"], response_class=HTMLResponse)
+async def contact_newsletter(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    email = str(form.get("newsletter_email") or "").strip()
+    if not email:
+        return _render_home_page(
+            request=request,
+            db=db,
+            current_page="contact",
+            newsletter_email=email,
+            newsletter_error="Enter an email address to join the newsletter.",
+            response_status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not NEWSLETTER_EMAIL_RE.match(email):
+        return _render_home_page(
+            request=request,
+            db=db,
+            current_page="contact",
+            newsletter_email=email,
+            newsletter_error="Enter a valid email address in the format name@example.com.",
+            response_status=status.HTTP_400_BAD_REQUEST,
+        )
+    return _render_home_page(
+        request=request,
+        db=db,
+        current_page="contact",
+        newsletter_success=f"Thanks. We'll use {email} for product updates only.",
     )
 
 
