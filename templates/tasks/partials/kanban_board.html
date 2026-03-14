@@ -1,0 +1,34 @@
+<div id="kanban-board" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {% set column_defs = [
+        {"key": "todo", "label": "Todo", "color": "border-slate-300 dark:border-slate-600"},
+        {"key": "in_progress", "label": "In Progress", "color": "border-blue-400 dark:border-blue-500"},
+        {"key": "done", "label": "Done", "color": "border-green-400 dark:border-green-500"},
+    ] %}
+    {% for col in column_defs %}
+    <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl border {{ col.color }} border-t-4 p-3">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3 px-1">
+            {{ col.label }}
+            <span class="ml-1 text-xs text-slate-400 dark:text-slate-500">
+                ({{ columns[col.key] | length if columns is defined and col.key in columns else 0 }})
+            </span>
+        </h3>
+        {% set col_count = columns[col.key] | length if columns is defined and col.key in columns else 0 %}
+        {% set wip_limit = 8 %}
+        {% set wip_pct = ((col_count / wip_limit) * 100) | round | int if wip_limit > 0 else 0 %}
+        {% set wip_pct = wip_pct if wip_pct <= 100 else 100 %}
+        <div class="mb-3 h-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500 {{ 'bg-red-400' if col_count > wip_limit else ('bg-amber-400' if wip_pct > 62 else 'bg-primary-400') }}"
+                 style="width: {{ wip_pct }}%;"></div>
+        </div>
+        <div class="space-y-2">
+            {% for task in columns[col.key] if columns is defined and col.key in columns %}
+            {% include "tasks/partials/task_card.html" %}
+            {% else %}
+            <div class="p-4 text-center">
+                <p class="text-xs text-slate-400 dark:text-slate-500">No tasks</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
