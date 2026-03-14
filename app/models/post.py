@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,7 @@ from app.db import Base, TimestampMixin
 class PostStatus(str, enum.Enum):
     draft = "draft"
     planned = "planned"
+    published = "published"
 
 
 class Post(TimestampMixin, Base):
@@ -26,7 +27,7 @@ class Post(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("campaigns.id", ondelete="CASCADE")
     )
     channel_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("channels.id")
+        UUID(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True
     )
     title: Mapped[str] = mapped_column(String(300))
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -49,3 +50,8 @@ class Post(TimestampMixin, Base):
     campaign = relationship("Campaign", back_populates="posts")
     channel = relationship("Channel", back_populates="posts")
     assets = relationship("Asset", secondary="post_assets", back_populates="posts")
+
+    __table_args__ = (
+        Index("ix_post_campaign_id", "campaign_id"),
+        Index("ix_post_channel_id", "channel_id"),
+    )
