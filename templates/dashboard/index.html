@@ -5,25 +5,45 @@
 
 {% block admin_content %}
 <div class="space-y-6">
-    {# Stats row #}
+    {# Stats row — enhanced with sparklines #}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {% set stats = [
-            {"label": "Total Campaigns", "value": total_campaigns if total_campaigns is defined else 0, "icon": "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"},
-            {"label": "Total Assets", "value": total_assets if total_assets is defined else 0, "icon": "M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M18 3.75h-1.5a.75.75 0 01-.75-.75V1.5m3 2.25V1.5m0 2.25h1.5m-1.5 0h-1.5"},
-            {"label": "Active Tasks", "value": active_tasks if active_tasks is defined else 0, "icon": "M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08"},
-            {"label": "Connected Channels", "value": connected_channels if connected_channels is defined else 0, "icon": "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375"},
+            {"label": "Total Campaigns", "value": total_campaigns if total_campaigns is defined else 0, "icon": "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9", "sparkline": false},
+            {"label": "Total Assets", "value": total_assets if total_assets is defined else 0, "icon": "M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M18 3.75h-1.5a.75.75 0 01-.75-.75V1.5m3 2.25V1.5m0 2.25h1.5m-1.5 0h-1.5", "sparkline": false},
+            {"label": "Active Tasks", "value": active_tasks if active_tasks is defined else 0, "icon": "M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08", "sparkline": false},
+            {"label": "Connected Channels", "value": connected_channels if connected_channels is defined else 0, "icon": "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375", "sparkline": true},
         ] %}
         {% for stat in stats %}
         <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 stagger-in">
-            <div class="flex items-center gap-3">
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ stat.icon }}" />
-                    </svg>
-                </div>
+            <div class="flex items-end justify-between">
                 <div>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white counter-animate">{{ stat.value }}</p>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ stat.label }}</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-1">{{ stat.label }}</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white counter-animate" style="font-variant-numeric: tabular-nums;">{{ "{:,}".format(stat.value) }}</p>
+                    {% if stat.sparkline and impressions_change is defined %}
+                    <div class="flex items-center gap-1 mt-1">
+                        {% if impressions_change > 0 %}
+                        <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                        <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400">{{ impressions_change }}%</span>
+                        {% elif impressions_change < 0 %}
+                        <svg class="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                        <span class="text-xs font-medium text-red-600 dark:text-red-400">{{ impressions_change }}%</span>
+                        {% else %}
+                        <span class="text-xs text-slate-400">0%</span>
+                        {% endif %}
+                        <span class="text-[10px] text-slate-400 dark:text-slate-500">vs prior 7d</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex-shrink-0">
+                    {% if stat.sparkline and sparkline_data is defined and sparkline_data %}
+                    <canvas id="sparkline-4" width="80" height="36" class="opacity-70"></canvas>
+                    {% else %}
+                    <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ stat.icon }}" />
+                        </svg>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -32,13 +52,82 @@
         {% endfor %}
     </div>
 
+    {# Campaign status donut + Channel health #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {# Campaign Status Distribution #}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 stagger-in">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Campaign Distribution</h3>
+            {% if campaign_status_counts is defined and campaign_status_counts %}
+            <div class="flex items-center gap-6">
+                <div class="relative w-32 h-32 flex-shrink-0">
+                    <canvas id="donut-campaigns"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span class="text-2xl font-bold text-slate-900 dark:text-white" style="font-variant-numeric: tabular-nums;">{{ total_campaigns if total_campaigns is defined else 0 }}</span>
+                        <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total</span>
+                    </div>
+                </div>
+                <div class="flex-1 space-y-2">
+                    {% set donut_colors = {
+                        'draft': {'dot': 'bg-slate-400', 'label': 'Draft'},
+                        'active': {'dot': 'bg-emerald-500', 'label': 'Active'},
+                        'paused': {'dot': 'bg-amber-500', 'label': 'Paused'},
+                        'completed': {'dot': 'bg-blue-500', 'label': 'Completed'},
+                        'archived': {'dot': 'bg-yellow-500', 'label': 'Archived'},
+                    } %}
+                    {% for status_key, count in campaign_status_counts.items() if count > 0 %}
+                    {% set info = donut_colors.get(status_key, {'dot': 'bg-slate-400', 'label': status_key | replace('_', ' ') | title}) %}
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full {{ info.dot }}"></span>
+                            <span class="text-slate-600 dark:text-slate-400">{{ info.label }}</span>
+                        </div>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ count }}</span>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No campaigns.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">No campaigns yet.</p>
+            {% endif %}
+        </div>
+
+        {# Channel Health #}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 stagger-in">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Channel Health</h3>
+            <div class="flex flex-wrap gap-3">
+                {% set health_color_map = {
+                    'healthy': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                    'warning': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                    'error': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                    'disconnected': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+                } %}
+                {% for ch in channel_health if channel_health is defined %}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium {{ health_color_map.get(ch.status if ch.status else 'disconnected', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
+                    <span class="w-1.5 h-1.5 rounded-full {{ 'bg-green-500' if ch.status == 'healthy' else ('bg-yellow-500' if ch.status == 'warning' else ('bg-red-500' if ch.status == 'error' else 'bg-slate-400')) }}"></span>
+                    {{ ch.name if ch.name else 'Unknown' }}
+                </span>
+                {% else %}
+                <p class="text-sm text-slate-500 dark:text-slate-400">No channels connected. <a href="/channels" class="text-primary-600 dark:text-primary-400 hover:underline">Connect a channel</a></p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     {# Main grid: Active campaigns + Upcoming posts #}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {# Active Campaigns Card #}
         <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
             <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Active Campaigns</h3>
-                <a href="/campaigns" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View all</a>
+                <div class="flex items-center gap-3">
+                    <a href="/campaigns/create" class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        New
+                    </a>
+                    <a href="/campaigns" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View all</a>
+                </div>
             </div>
             <div class="divide-y divide-slate-100 dark:divide-slate-700">
                 {% for campaign in active_campaigns if active_campaigns is defined %}
@@ -54,7 +143,7 @@
                     {{ status_badge(campaign.status | string if campaign.status else 'active') }}
                 </div>
                 {% else %}
-                {{ empty_state("No active campaigns", "/campaigns/new", "New Campaign") }}
+                {{ empty_state("No active campaigns", "/campaigns/create", "New Campaign") }}
                 {% endfor %}
             </div>
         </div>
@@ -71,7 +160,7 @@
                     <div>
                         <p class="text-sm font-medium text-slate-900 dark:text-white">{{ post.title if post.title else '' }}</p>
                         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {{ post.channel_name if post.channel_name else '' }} &middot; {{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}
+                            {{ post.channel.name if post.channel else '' }} &middot; {{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}
                         </p>
                     </div>
                     {{ status_badge(post.status | string if post.status else 'draft') }}
@@ -82,26 +171,87 @@
             </div>
         </div>
     </div>
-
-    {# Channel Health Badges #}
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Channel Health</h3>
-        <div class="flex flex-wrap gap-3">
-            {% set health_color_map = {
-                'healthy': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                'warning': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-                'error': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-                'disconnected': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
-            } %}
-            {% for ch in channel_health if channel_health is defined %}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium {{ health_color_map.get(ch.status if ch.status else 'disconnected', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
-                <span class="w-1.5 h-1.5 rounded-full {{ 'bg-green-500' if ch.status == 'healthy' else ('bg-yellow-500' if ch.status == 'warning' else ('bg-red-500' if ch.status == 'error' else 'bg-slate-400')) }}"></span>
-                {{ ch.name if ch.name else 'Unknown' }}
-            </span>
-            {% else %}
-            <p class="text-sm text-slate-500 dark:text-slate-400">No channels connected. <a href="/channels" class="text-primary-600 dark:text-primary-400 hover:underline">Connect a channel</a></p>
-            {% endfor %}
-        </div>
-    </div>
 </div>
+
+{# Chart.js for sparkline + donut #}
+{% if (sparkline_data is defined and sparkline_data) or (campaign_status_counts is defined and campaign_status_counts) %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    var isDark = document.documentElement.classList.contains('dark');
+
+    // Sparkline — impressions trend
+    {% if sparkline_data is defined and sparkline_data %}
+    var sparkData = {{ sparkline_data | tojson }};
+    var sparkValues = sparkData.map(function(d) { return d.impressions; });
+    var sparkColor = isDark ? 'rgba(6,182,212,0.8)' : 'rgba(6,182,212,0.6)';
+    var sparkFill = isDark ? 'rgba(6,182,212,0.15)' : 'rgba(6,182,212,0.1)';
+    var sparkCanvas = document.getElementById('sparkline-4');
+    if (sparkCanvas) {
+        new Chart(sparkCanvas, {
+            type: 'line',
+            data: {
+                labels: sparkData.map(function(d) { return d.date; }),
+                datasets: [{
+                    data: sparkValues,
+                    borderColor: sparkColor,
+                    backgroundColor: sparkFill,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHitRadius: 0,
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                scales: { x: { display: false }, y: { display: false } },
+                animation: { duration: 800 }
+            }
+        });
+    }
+    {% endif %}
+
+    // Donut — campaign status distribution
+    {% if campaign_status_counts is defined and campaign_status_counts %}
+    var statusData = {{ campaign_status_counts | tojson }};
+    var donutCanvas = document.getElementById('donut-campaigns');
+    if (donutCanvas && Object.keys(statusData).length > 0) {
+        var colorMap = {
+            draft: isDark ? 'rgba(148,163,184,0.8)' : 'rgba(148,163,184,0.7)',
+            active: isDark ? 'rgba(16,185,129,0.8)' : 'rgba(16,185,129,0.7)',
+            paused: isDark ? 'rgba(245,158,11,0.8)' : 'rgba(245,158,11,0.7)',
+            completed: isDark ? 'rgba(59,130,246,0.8)' : 'rgba(59,130,246,0.7)',
+            archived: isDark ? 'rgba(234,179,8,0.8)' : 'rgba(234,179,8,0.7)',
+        };
+        var labels = [];
+        var vals = [];
+        var colors = [];
+        for (var key in statusData) {
+            if (statusData[key] > 0) {
+                labels.push(key.replace('_', ' '));
+                vals.push(statusData[key]);
+                colors.push(colorMap[key] || 'rgba(148,163,184,0.5)');
+            }
+        }
+        if (vals.length > 0) {
+            new Chart(donutCanvas, {
+                type: 'doughnut',
+                data: { labels: labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 0 }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '70%',
+                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                    animation: { animateRotate: true, duration: 800 },
+                }
+            });
+        }
+    }
+    {% endif %}
+})();
+</script>
+{% endif %}
 {% endblock %}
