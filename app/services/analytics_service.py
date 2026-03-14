@@ -69,6 +69,48 @@ class AnalyticsService:
         rows = self.db.execute(stmt).all()
         return {row.metric_type.value: float(row.total) for row in rows}
 
+    def get_daily_totals(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+        channel_id: UUID | None = None,
+    ) -> list[dict]:
+        """Return daily-aggregated metrics as a list of dicts sorted by date."""
+        stmt = (
+            select(
+                ChannelMetric.metric_date,
+                ChannelMetric.metric_type,
+                func.sum(ChannelMetric.value).label("total"),
+            )
+            .where(ChannelMetric.metric_date >= start_date)
+            .where(ChannelMetric.metric_date <= end_date)
+            .where(ChannelMetric.metric_type.in_([
+                MetricType.impressions,
+                MetricType.reach,
+                MetricType.clicks,
+                MetricType.engagement,
+            ]))
+        )
+        if channel_id is not None:
+            stmt = stmt.where(ChannelMetric.channel_id == channel_id)
+        stmt = stmt.group_by(ChannelMetric.metric_date, ChannelMetric.metric_type)
+        stmt = stmt.order_by(ChannelMetric.metric_date)
+
+        rows = self.db.execute(stmt).all()
+
+        by_date: dict[date, dict[str, int]] = {}
+        for row in rows:
+            d = row.metric_date
+            if d not in by_date:
+                by_date[d] = {"impressions": 0, "reach": 0, "clicks": 0, "engagement": 0}
+            by_date[d][row.metric_type.value] = int(row.total)
+
+        return [
+            {"date": d.isoformat(), **metrics}
+            for d, metrics in sorted(by_date.items())
+        ]
+
     def upsert_metric(
         self,
         channel_id: UUID,
