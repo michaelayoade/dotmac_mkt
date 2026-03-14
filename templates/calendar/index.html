@@ -5,32 +5,162 @@
 
 {% block admin_content %}
 <div class="space-y-4">
-    {# Month navigation #}
-    <div class="flex items-center justify-between">
+    {# Header with view toggle and filters #}
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">
             {{ month_name if month_name else 'Calendar' }} {{ year if year else '' }}
         </h1>
-        <div class="flex items-center gap-2">
-            <a href="/calendar?month={{ prev_month if prev_month is defined else 1 }}&year={{ prev_year if prev_year is defined else 2026 }}"
+        <div class="flex flex-wrap items-center gap-2">
+            {# View toggle #}
+            <div class="inline-flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden">
+                <a href="/calendar?month={{ month }}&year={{ year }}{{ filter_qs }}"
+                   class="px-3 py-1.5 text-sm font-medium {{ 'bg-primary-600 text-white' if view != 'week' else 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
+                    Month
+                </a>
+                <a href="/calendar?view=week&month={{ month }}&year={{ year }}{{ filter_qs }}"
+                   class="px-3 py-1.5 text-sm font-medium {{ 'bg-primary-600 text-white' if view == 'week' else 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
+                    Week
+                </a>
+            </div>
+
+            {# Navigation #}
+            {% if view == 'week' %}
+            <a href="/calendar?view=week&week_start={{ prev_week }}{{ filter_qs }}"
                class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
             </a>
-            <a href="/calendar"
+            <a href="/calendar?view=week{{ filter_qs }}"
                class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
-                Today
+                This Week
             </a>
-            <a href="/calendar?month={{ next_month if next_month is defined else 1 }}&year={{ next_year if next_year is defined else 2026 }}"
+            <a href="/calendar?view=week&week_start={{ next_week }}{{ filter_qs }}"
                class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
             </a>
+            {% else %}
+            <a href="/calendar?month={{ prev_month }}&year={{ prev_year }}{{ filter_qs }}"
+               class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </a>
+            <a href="/calendar{{ filter_qs | replace('&', '?', 1) if filter_qs else '' }}"
+               class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                Today
+            </a>
+            <a href="/calendar?month={{ next_month }}&year={{ next_year }}{{ filter_qs }}"
+               class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+            {% endif %}
+
+            {# Filters — HTMX form sends both filters together #}
+            <form hx-get="/calendar"
+                  hx-target="#calendar-content"
+                  hx-push-url="true"
+                  class="contents">
+                {% if view == 'week' %}
+                <input type="hidden" name="view" value="week" />
+                <input type="hidden" name="week_start" value="{{ week_start if week_start else '' }}" />
+                {% else %}
+                <input type="hidden" name="month" value="{{ month }}" />
+                <input type="hidden" name="year" value="{{ year }}" />
+                {% endif %}
+                <select name="campaign_id"
+                        hx-trigger="change"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <option value="">All Campaigns</option>
+                    {% for c in campaigns if campaigns is defined %}
+                    <option value="{{ c.id }}" {{ 'selected' if campaign_id_filter is defined and campaign_id_filter == c.id | string else '' }}>{{ c.name if c.name else '' }}</option>
+                    {% else %}
+                    {% endfor %}
+                </select>
+                <select name="channel_id"
+                        hx-trigger="change"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <option value="">All Channels</option>
+                    {% for ch in channels if channels is defined %}
+                    <option value="{{ ch.id }}" {{ 'selected' if channel_id_filter is defined and channel_id_filter == ch.id | string else '' }}>{{ ch.name if ch.name else '' }}</option>
+                    {% else %}
+                    {% endfor %}
+                </select>
+            </form>
         </div>
     </div>
 
-    {# Calendar grid #}
+    <div id="calendar-content">
+    {% set channel_color_map = {
+        'meta_instagram': 'bg-pink-200 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
+        'meta_facebook': 'bg-blue-200 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+        'twitter': 'bg-sky-200 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
+        'linkedin': 'bg-indigo-200 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
+        'google_ads': 'bg-yellow-200 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+        'email': 'bg-emerald-200 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+    } %}
+
+    {% if view == 'week' %}
+    {# ── Week view ─────────────────────────────────────────── #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700">
+            {% set day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+            {% for i in range(7) %}
+            {% set d = week_days[i] if week_days | length > i else none %}
+            <div class="px-2 py-2 text-center border-r border-slate-100 dark:border-slate-700 last:border-r-0">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ day_names[i] }}</span>
+                {% if d %}
+                <span class="block text-sm font-bold {{ 'text-primary-600 dark:text-primary-400' if d.isoformat() == today else 'text-slate-900 dark:text-white' }}">{{ d.day }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="grid grid-cols-7 min-h-[300px]"
+             x-data='{ dragPostId: null }'>
+            {% for d in week_days %}
+            {% set date_key = d.isoformat() %}
+            {% set is_today = date_key == today %}
+            {% set day_posts = posts_by_date.get(date_key, []) if posts_by_date is defined else [] %}
+            <div class="border-r border-slate-100 dark:border-slate-700 last:border-r-0 p-2 {{ 'ring-2 ring-inset ring-primary-500' if is_today else '' }}"
+                 @dragover.prevent
+                 @drop.prevent="
+                    const postId = event.dataTransfer.getData('text/plain');
+                    if (postId) {
+                        fetch('/api/v1/posts/' + postId + '/reschedule', {
+                            method: 'PATCH',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({scheduled_at: '{{ date_key }}T12:00:00Z'})
+                        }).then(r => { if (r.ok) window.location.reload(); else $dispatch('show-toast', {type:'error', message:'Failed to reschedule post'}); }).catch(() => $dispatch('show-toast', {type:'error', message:'Network error — could not reschedule'}));
+                    }
+                 ">
+                <div class="space-y-1">
+                    {% for post in day_posts %}
+                    {% set provider_val = post.channel.provider | string if post.channel and post.channel.provider else '' %}
+                    <div class="px-2 py-1.5 rounded text-xs font-medium truncate cursor-move {{ channel_color_map.get(provider_val, 'bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-300') }}"
+                         draggable="true"
+                         @dragstart="event.dataTransfer.setData('text/plain', '{{ post.id }}')"
+                         title="{{ post.title if post.title else '' }} — {{ post.scheduled_at.strftime('%H:%M') if post.scheduled_at else '' }}">
+                        <span class="block text-[10px] opacity-70">{{ post.scheduled_at.strftime('%H:%M') if post.scheduled_at else '' }}</span>
+                        {{ post.title if post.title else '' }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-7 p-8 text-center">
+                {{ empty_state("No week data") }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% else %}
+    {# ── Month view ────────────────────────────────────────── #}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         {# Day headers #}
         <div class="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700">
@@ -43,38 +173,59 @@
         </div>
 
         {# Calendar cells #}
-        {% set channel_color_map = {
-            'meta_instagram': 'bg-pink-200 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
-            'meta_facebook': 'bg-blue-200 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-            'twitter': 'bg-sky-200 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
-            'linkedin': 'bg-indigo-200 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
-            'google_ads': 'bg-yellow-200 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-            'email': 'bg-emerald-200 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-        } %}
-        <div class="grid grid-cols-7">
-            {% for week in weeks if weeks is defined %}
-            {% for day in week %}
-            <div class="min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700 p-1.5 {{ 'bg-slate-50 dark:bg-slate-800/50' if not day.in_month else '' }} {{ 'ring-2 ring-inset ring-primary-500' if day.is_today else '' }}">
-                <p class="text-xs font-medium {{ 'text-slate-900 dark:text-white' if day.in_month else 'text-slate-400 dark:text-slate-600' }} mb-1">
-                    {{ day.number }}
+        <div class="grid grid-cols-7"
+             x-data='{ dragPostId: null }'>
+            {% for day_num, weekday in month_days %}
+            {% set in_month = day_num != 0 %}
+            {% set date_key = '%04d-%02d-%02d' | format(year, month, day_num) if in_month else '' %}
+            {% set is_today = date_key == today %}
+            {% set day_posts = posts_by_date.get(date_key, []) if in_month and posts_by_date is defined else [] %}
+            <div class="min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700 p-1.5 {{ 'bg-slate-50 dark:bg-slate-800/50' if not in_month else '' }} {{ 'ring-2 ring-inset ring-primary-500' if is_today else '' }}"
+                 {% if in_month %}
+                 @dragover.prevent
+                 @drop.prevent="
+                    const postId = event.dataTransfer.getData('text/plain');
+                    if (postId) {
+                        fetch('/api/v1/posts/' + postId + '/reschedule', {
+                            method: 'PATCH',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({scheduled_at: '{{ date_key }}T12:00:00Z'})
+                        }).then(r => { if (r.ok) window.location.reload(); else $dispatch('show-toast', {type:'error', message:'Failed to reschedule post'}); }).catch(() => $dispatch('show-toast', {type:'error', message:'Network error — could not reschedule'}));
+                    }
+                 "
+                 {% endif %}>
+                {% if in_month %}
+                <p class="text-xs font-medium text-slate-900 dark:text-white mb-1">
+                    {{ day_num }}
                 </p>
-                <div class="space-y-0.5">
-                    {% for post in day.posts if day.posts is defined %}
-                    <div class="px-1.5 py-0.5 rounded text-[10px] font-medium truncate {{ channel_color_map.get(post.channel_type if post.channel_type else '', 'bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-300') }}"
-                         title="{{ post.title if post.title else '' }}">
-                        {{ post.title if post.title else '' }}
+                {% else %}
+                <p class="text-xs font-medium text-slate-400 dark:text-slate-600 mb-1">&nbsp;</p>
+                {% endif %}
+                <div class="flex flex-wrap gap-0.5 mt-0.5">
+                    {% for post in day_posts %}
+                    {% set provider_val = post.channel.provider | string if post.channel and post.channel.provider else '' %}
+                    {% set dot_color_map = {
+                        'meta_instagram': 'bg-pink-400',
+                        'meta_facebook': 'bg-blue-500',
+                        'twitter': 'bg-sky-400',
+                        'linkedin': 'bg-indigo-500',
+                        'google_ads': 'bg-yellow-500',
+                        'email': 'bg-emerald-500',
+                    } %}
+                    <div class="w-2 h-2 rounded-full cursor-pointer {{ dot_color_map.get(provider_val, 'bg-slate-400') }} {{ 'ring-1 ring-white dark:ring-slate-800' if post.status | string == 'published' else 'opacity-60' }}"
+                         title="{{ post.title if post.title else '' }} — {{ post.scheduled_at.strftime('%H:%M') if post.scheduled_at else '' }} ({{ provider_val | replace('_', ' ') | title }})"
+                         draggable="true"
+                         @dragstart="event.dataTransfer.setData('text/plain', '{{ post.id }}')">
                     </div>
                     {% endfor %}
                 </div>
             </div>
             {% endfor %}
-            {% else %}
-            <div class="col-span-7">
-                {{ empty_state("Calendar data unavailable") }}
-            </div>
-            {% endfor %}
         </div>
     </div>
+    {% endif %}
+
+    </div>{# /calendar-content #}
 
     {# Legend #}
     <div class="flex flex-wrap gap-3 text-xs">
