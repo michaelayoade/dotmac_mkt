@@ -34,7 +34,9 @@ class Settings:
 
     # Branding
     brand_name: str = os.getenv("BRAND_NAME", "DotMac Marketing")
-    brand_tagline: str = os.getenv("BRAND_TAGLINE", "Marketing & Digital Asset Management")
+    brand_tagline: str = os.getenv(
+        "BRAND_TAGLINE", "Marketing & Digital Asset Management"
+    )
     brand_logo_url: str | None = os.getenv("BRAND_LOGO_URL") or None
     branding_upload_dir: str = os.getenv("BRANDING_UPLOAD_DIR", "static/branding")
     branding_max_size_bytes: int = int(

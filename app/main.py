@@ -135,9 +135,16 @@ async def canonical_host_middleware(
     request_host = _request_host(request)
     request_scheme = _request_scheme(request)
     canonical_scheme = (settings.canonical_scheme or request_scheme).strip().lower()
-    alternate_hosts = {canonical_host.removeprefix("www."), f"www.{canonical_host.removeprefix('www.')}"}
+    alternate_hosts = {
+        canonical_host.removeprefix("www."),
+        f"www.{canonical_host.removeprefix('www.')}",
+    }
 
-    if request_host and request_host in alternate_hosts and request_host != canonical_host:
+    if (
+        request_host
+        and request_host in alternate_hosts
+        and request_host != canonical_host
+    ):
         canonical_url = str(
             request.url.replace(
                 scheme=canonical_scheme,

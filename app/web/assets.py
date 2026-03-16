@@ -55,9 +55,9 @@ def list_assets(
     if type_filter is not None:
         stmt = stmt.where(Asset.asset_type == type_filter)
     if campaign_id is not None:
-        stmt = stmt.join(
-            campaign_assets, Asset.id == campaign_assets.c.asset_id
-        ).where(campaign_assets.c.campaign_id == campaign_id)
+        stmt = stmt.join(campaign_assets, Asset.id == campaign_assets.c.asset_id).where(
+            campaign_assets.c.campaign_id == campaign_id
+        )
     if q:
         stmt = stmt.where(Asset.name.ilike(f"%{q}%"))
     stmt = stmt.order_by(Asset.created_at.desc())
@@ -200,7 +200,9 @@ async def edit_asset_submit(
     form = await request.form()
     data = AssetUpdate(
         name=str(form.get("name", "")) or None,
-        asset_type=AssetType(str(form.get("asset_type", ""))) if form.get("asset_type") else None,
+        asset_type=AssetType(str(form.get("asset_type", "")))
+        if form.get("asset_type")
+        else None,
         drive_url=str(form.get("drive_url", "")) or None,
         thumbnail_url=str(form.get("thumbnail_url", "")) or None,
         mime_type=str(form.get("mime_type", "")) or None,

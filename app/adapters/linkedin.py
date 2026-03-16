@@ -105,9 +105,7 @@ class LinkedInAdapter(ChannelAdapter):
         start_ms = int(
             datetime.combine(start_date, datetime.min.time()).timestamp() * 1000
         )
-        end_ms = int(
-            datetime.combine(end_date, datetime.min.time()).timestamp() * 1000
-        )
+        end_ms = int(datetime.combine(end_date, datetime.min.time()).timestamp() * 1000)
         urn = f"urn:li:organization:{self.organization_id}"
 
         try:
@@ -134,9 +132,7 @@ class LinkedInAdapter(ChannelAdapter):
             stats = element.get("totalShareStatistics", {})
             time_range = element.get("timeRange", {})
             try:
-                metric_date = date.fromtimestamp(
-                    time_range.get("start", 0) / 1000
-                )
+                metric_date = date.fromtimestamp(time_range.get("start", 0) / 1000)
             except (ValueError, TypeError, OSError):
                 metric_date = start_date
 
@@ -158,9 +154,7 @@ class LinkedInAdapter(ChannelAdapter):
                     )
         return results
 
-    async def fetch_posts(
-        self, since: datetime | None = None
-    ) -> list[PostData]:
+    async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Fetch organization shares/posts."""
         urn = f"urn:li:organization:{self.organization_id}"
         params: dict[str, str] = {
@@ -194,12 +188,10 @@ class LinkedInAdapter(ChannelAdapter):
             if since and published_at and published_at < since:
                 continue
 
-            text_content = (
-                item.get("text", {}).get("text", "")
-                or item.get("specificContent", {})
-                .get("com.linkedin.ugc.ShareContent", {})
-                .get("shareCommentary", {})
-                .get("text", "")
+            text_content = item.get("text", {}).get("text", "") or item.get(
+                "specificContent", {}
+            ).get("com.linkedin.ugc.ShareContent", {}).get("shareCommentary", {}).get(
+                "text", ""
             )
             results.append(
                 PostData(

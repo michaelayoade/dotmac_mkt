@@ -39,9 +39,7 @@ class Channel(TimestampMixin, Base):
     credentials_encrypted: Mapped[bytes | None] = mapped_column(
         LargeBinary, nullable=True
     )
-    external_account_id: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )
+    external_account_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     last_synced_at = mapped_column(DateTime(timezone=True), nullable=True)
 
     posts = relationship("Post", back_populates="channel")

@@ -56,43 +56,43 @@ def settings_page(
         if drive_setting and drive_setting.value_text:
             drive_folder_id = drive_setting.value_text
     except Exception:
-        pass
+        logger.debug("Failed to load google_drive_folder_id setting")
     try:
         crm_setting = marketing_settings.get_by_key(db, "crm_base_url")
         if crm_setting and crm_setting.value_text:
             crm_base_url = crm_setting.value_text
     except Exception:
-        pass
+        logger.debug("Failed to load crm_base_url setting")
     try:
         meta_id_setting = marketing_settings.get_by_key(db, "meta_app_id")
         if meta_id_setting and meta_id_setting.value_text:
             meta_app_id = resolve_secret(meta_id_setting.value_text) or ""
     except Exception:
-        pass
+        logger.debug("Failed to load meta_app_id setting")
     try:
         meta_secret_setting = marketing_settings.get_by_key(db, "meta_app_secret")
         if meta_secret_setting and meta_secret_setting.value_text:
             meta_app_secret = resolve_secret(meta_secret_setting.value_text) or ""
     except Exception:
-        pass
+        logger.debug("Failed to load meta_app_secret setting")
     try:
         setting = marketing_settings.get_by_key(db, "meta_graph_version")
         if setting and setting.value_text:
             meta_graph_version = setting.value_text
     except Exception:
-        pass
+        logger.debug("Failed to load meta_graph_version setting")
     try:
         setting = marketing_settings.get_by_key(db, "meta_webhook_verify_token")
         if setting and setting.value_text:
             meta_webhook_verify_token = resolve_secret(setting.value_text) or ""
     except Exception:
-        pass
+        logger.debug("Failed to load meta_webhook_verify_token setting")
     try:
         setting = marketing_settings.get_by_key(db, "meta_api_timeout_seconds")
         if setting and setting.value_text:
             meta_api_timeout_seconds = setting.value_text
     except Exception:
-        pass
+        logger.debug("Failed to load meta_api_timeout_seconds setting")
 
     ctx = {
         "request": request,

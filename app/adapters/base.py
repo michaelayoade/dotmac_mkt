@@ -52,7 +52,5 @@ class ChannelAdapter(ABC):
         """Pull metrics for a date range."""
 
     @abstractmethod
-    async def fetch_posts(
-        self, since: datetime | None = None
-    ) -> list[PostData]:
+    async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Sync published content back."""

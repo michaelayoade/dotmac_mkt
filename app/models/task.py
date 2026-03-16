@@ -48,6 +48,4 @@ class Task(TimestampMixin, Base):
             return False
         return self.due_date < date_type.today()
 
-    __table_args__ = (
-        Index("ix_task_campaign_id", "campaign_id"),
-    )
+    __table_args__ = (Index("ix_task_campaign_id", "campaign_id"),)

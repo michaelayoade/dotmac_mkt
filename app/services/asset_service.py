@@ -93,9 +93,7 @@ class AssetService:
         )
         self.db.execute(stmt)
         self.db.flush()
-        logger.info(
-            "Linked Asset %s to Campaign %s", asset_id, campaign_id
-        )
+        logger.info("Linked Asset %s to Campaign %s", asset_id, campaign_id)
 
     def unlink_from_campaign(self, asset_id: UUID, campaign_id: UUID) -> None:
         stmt = delete(campaign_assets).where(
@@ -104,6 +102,4 @@ class AssetService:
         )
         self.db.execute(stmt)
         self.db.flush()
-        logger.info(
-            "Unlinked Asset %s from Campaign %s", asset_id, campaign_id
-        )
+        logger.info("Unlinked Asset %s from Campaign %s", asset_id, campaign_id)

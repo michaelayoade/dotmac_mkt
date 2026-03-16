@@ -176,7 +176,11 @@ class DriveService:
                 asset.drive_status = DriveStatus.missing
                 asset.last_verified_at = datetime.now(UTC)
                 counts["missing"] += 1
-                logger.warning("Asset no longer in Drive folder: %s (%s)", asset.name, asset.drive_file_id)
+                logger.warning(
+                    "Asset no longer in Drive folder: %s (%s)",
+                    asset.name,
+                    asset.drive_file_id,
+                )
         if counts["missing"]:
             self.db.flush()
 

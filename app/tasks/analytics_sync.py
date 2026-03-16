@@ -83,6 +83,7 @@ def _sync_channel(channel, cred_svc, analytics_svc, start, end):
     # Note: This is sync context but adapters are async
     # In production, use asyncio.run() or celery-pool-asyncio
     import asyncio
+
     adapter = get_adapter(channel.provider, **adapter_kwargs)
     metrics = asyncio.run(adapter.fetch_analytics(start, end))
 
@@ -90,7 +91,9 @@ def _sync_channel(channel, cred_svc, analytics_svc, start, end):
         try:
             mt = MetricType(m.metric_type)
         except ValueError:
-            logger.warning("Unknown metric type %s from %s, skipping", m.metric_type, channel.name)
+            logger.warning(
+                "Unknown metric type %s from %s, skipping", m.metric_type, channel.name
+            )
             continue
         analytics_svc.upsert_metric(
             channel_id=channel.id,

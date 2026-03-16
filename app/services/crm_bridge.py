@@ -39,9 +39,7 @@ class CrmBridge:
             logger.error("CRM request timed out for segments")
             return []
 
-    async def link_campaign(
-        self, campaign_id: UUID, crm_campaign_id: str
-    ) -> dict:
+    async def link_campaign(self, campaign_id: UUID, crm_campaign_id: str) -> dict:
         if not self.is_configured():
             raise RuntimeError("CRM bridge is not configured")
         try:
@@ -61,9 +59,7 @@ class CrmBridge:
                 "CRM returned %s for link_campaign request",
                 exc.response.status_code,
             )
-            raise RuntimeError(
-                f"CRM returned status {exc.response.status_code}"
-            )
+            raise RuntimeError(f"CRM returned status {exc.response.status_code}")
         except httpx.TimeoutException:
             logger.error("CRM request timed out for link_campaign")
             raise RuntimeError("CRM request timed out")

@@ -37,9 +37,12 @@ class TestMarketingPages:
         assert response.headers["location"] == "https://dotmac.ng/services"
 
     def test_invalid_newsletter_submission_returns_accessible_error(self, client):
+        resp = client.get("/contact")
+        csrf_token = resp.cookies.get("csrf_token", "")
         response = client.post(
             "/contact/newsletter",
-            data={"newsletter_email": "not-an-email"},
+            data={"newsletter_email": "not-an-email", "csrf_token": csrf_token},
+            cookies={"csrf_token": csrf_token},
         )
 
         assert response.status_code == 400
@@ -48,9 +51,12 @@ class TestMarketingPages:
         assert 'aria-invalid="true"' in response.text
 
     def test_valid_newsletter_submission_returns_status_message(self, client):
+        resp = client.get("/contact")
+        csrf_token = resp.cookies.get("csrf_token", "")
         response = client.post(
             "/contact/newsletter",
-            data={"newsletter_email": "team@example.com"},
+            data={"newsletter_email": "team@example.com", "csrf_token": csrf_token},
+            cookies={"csrf_token": csrf_token},
         )
 
         assert response.status_code == 200

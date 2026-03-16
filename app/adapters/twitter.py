@@ -149,9 +149,7 @@ class TwitterAdapter(ChannelAdapter):
                 )
         return results
 
-    async def fetch_posts(
-        self, since: datetime | None = None
-    ) -> list[PostData]:
+    async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Fetch tweets from the user timeline."""
         params: dict[str, str] = {
             "tweet.fields": "created_at,text",

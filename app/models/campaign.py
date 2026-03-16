@@ -82,7 +82,13 @@ class Campaign(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("people.id")
     )
 
-    posts = relationship("Post", back_populates="campaign", cascade="all, delete-orphan")
-    tasks = relationship("Task", back_populates="campaign", cascade="all, delete-orphan")
-    assets = relationship("Asset", secondary=campaign_assets, back_populates="campaigns")
+    posts = relationship(
+        "Post", back_populates="campaign", cascade="all, delete-orphan"
+    )
+    tasks = relationship(
+        "Task", back_populates="campaign", cascade="all, delete-orphan"
+    )
+    assets = relationship(
+        "Asset", secondary=campaign_assets, back_populates="campaigns"
+    )
     members = relationship("Person", secondary=campaign_members)

@@ -142,9 +142,7 @@ def _channel_context(
 
 
 def _ensure_default_channels(channel_svc: ChannelService, db: Session) -> list[Channel]:
-    existing = list(
-        db.scalars(select(Channel).order_by(Channel.name)).all()
-    )
+    existing = list(db.scalars(select(Channel).order_by(Channel.name)).all())
     existing_by_provider = {channel.provider for channel in existing}
     created = False
 
@@ -163,9 +161,7 @@ def _ensure_default_channels(channel_svc: ChannelService, db: Session) -> list[C
 
     if created:
         db.commit()
-        existing = list(
-            db.scalars(select(Channel).order_by(Channel.name)).all()
-        )
+        existing = list(db.scalars(select(Channel).order_by(Channel.name)).all())
 
     return existing
 
@@ -323,6 +319,7 @@ _CLIENT_IDS: dict[str, str] = {
     "google_analytics": settings.google_analytics_client_id,
 }
 
+
 @router.get("", response_class=HTMLResponse)
 def list_channels(
     request: Request,
@@ -343,10 +340,14 @@ def list_channels(
     d_start = today - timedelta(days=30)
     channel_metrics: dict[str, dict[str, int]] = {}
     for ch in channels:
-        raw = analytics_svc.get_channel_metrics(ch.id, start_date=d_start, end_date=today)
+        raw = analytics_svc.get_channel_metrics(
+            ch.id, start_date=d_start, end_date=today
+        )
         totals: dict[str, float] = {}
         for m in raw:
-            totals[m.metric_type.value] = totals.get(m.metric_type.value, 0) + float(m.value)
+            totals[m.metric_type.value] = totals.get(m.metric_type.value, 0) + float(
+                m.value
+            )
         channel_metrics[str(ch.id)] = {
             "impressions": int(totals.get("impressions", 0)),
             "reach": int(totals.get("reach", 0)),
@@ -410,7 +411,9 @@ async def create_channel_submit(
     external_account_id = str(form.get("external_account_id", "")).strip()
 
     if provider == "meta":
-        return RedirectResponse(url=str(request.url_for("meta_connect")), status_code=302)
+        return RedirectResponse(
+            url=str(request.url_for("meta_connect")), status_code=302
+        )
 
     try:
         provider_enum = ChannelProvider(provider)
@@ -425,7 +428,8 @@ async def create_channel_submit(
                     "value": "meta",
                     "label": "Meta (Facebook + Instagram)",
                 },
-            ] + [
+            ]
+            + [
                 {
                     "value": item.value,
                     "label": _PROVIDER_DISPLAY_NAMES.get(
@@ -446,7 +450,9 @@ async def create_channel_submit(
 
     redirect_url = str(request.url_for("initiate_oauth", provider=provider_enum.value))
     if external_account_id:
-        redirect_url = f"{redirect_url}?{urlencode({'external_account_id': external_account_id})}"
+        redirect_url = (
+            f"{redirect_url}?{urlencode({'external_account_id': external_account_id})}"
+        )
     return RedirectResponse(url=redirect_url, status_code=302)
 
 
@@ -496,18 +502,26 @@ async def meta_oauth_callback(
 ) -> RedirectResponse:
     cookie_state = request.cookies.get("oauth_state", "")
     if not state or state != cookie_state:
-        return RedirectResponse(url="/channels?error=Invalid+OAuth+state", status_code=302)
+        return RedirectResponse(
+            url="/channels?error=Invalid+OAuth+state", status_code=302
+        )
 
     serializer = _get_serializer()
     try:
         payload = serializer.loads(state, max_age=600)
     except (BadSignature, SignatureExpired, BadData):
-        return RedirectResponse(url="/channels?error=OAuth+state+expired", status_code=302)
+        return RedirectResponse(
+            url="/channels?error=OAuth+state+expired", status_code=302
+        )
 
     if payload.get("provider") != "meta":
-        return RedirectResponse(url="/channels?error=Provider+mismatch", status_code=302)
+        return RedirectResponse(
+            url="/channels?error=Provider+mismatch", status_code=302
+        )
     if not code:
-        return RedirectResponse(url="/channels?error=No+authorization+code", status_code=302)
+        return RedirectResponse(
+            url="/channels?error=No+authorization+code", status_code=302
+        )
 
     meta_config = get_meta_oauth_config(db)
     if not meta_config.app_id or not meta_config.app_secret:
@@ -530,7 +544,9 @@ async def meta_oauth_callback(
         token_data = await adapter.connect(code, redirect_uri=callback_url)
     except (ValueError, RuntimeError) as e:
         logger.error("Meta OAuth token exchange failed: %s", e)
-        return RedirectResponse(url="/channels?error=Token+exchange+failed", status_code=302)
+        return RedirectResponse(
+            url="/channels?error=Token+exchange+failed", status_code=302
+        )
 
     channel_svc = ChannelService(db)
     cred_svc = CredentialService()
@@ -554,7 +570,9 @@ async def meta_oauth_callback(
         provider_enum = ChannelProvider(provider_value)
         asset_token_data = {
             **token_data,
-            "access_token": asset.get("access_token", token_data.get("access_token", "")),
+            "access_token": asset.get(
+                "access_token", token_data.get("access_token", "")
+            ),
         }
         _store_channel_connection(
             db,
@@ -612,12 +630,12 @@ def initiate_oauth(
     try:
         ChannelProvider(provider)
     except ValueError:
-        return RedirectResponse(
-            url="/channels?error=Unknown+provider", status_code=302
-        )
+        return RedirectResponse(url="/channels?error=Unknown+provider", status_code=302)
 
     if provider in _META_PROVIDER_VALUES:
-        return RedirectResponse(url=str(request.url_for("meta_connect")), status_code=302)
+        return RedirectResponse(
+            url=str(request.url_for("meta_connect")), status_code=302
+        )
 
     oauth_url = _OAUTH_URLS.get(provider)
     client_id = _CLIENT_IDS.get(provider, "")
@@ -716,9 +734,7 @@ async def oauth_callback(
     try:
         provider_enum = ChannelProvider(provider)
     except ValueError:
-        return RedirectResponse(
-            url="/channels?error=Unknown+provider", status_code=302
-        )
+        return RedirectResponse(url="/channels?error=Unknown+provider", status_code=302)
 
     # Build provider-specific kwargs for adapter instantiation
     _adapter_kwargs: dict[str, str] = {"access_token": ""}
@@ -791,7 +807,9 @@ async def oauth_callback(
     channel_svc.update_last_synced(channel.id)
     db.commit()
 
-    logger.info("OAuth flow completed for provider %s, channel %s", provider, channel.id)
+    logger.info(
+        "OAuth flow completed for provider %s, channel %s", provider, channel.id
+    )
 
     # Clear the state cookie
     response = RedirectResponse(

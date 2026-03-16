@@ -48,7 +48,9 @@ class ChannelService:
         self.db.flush()
         logger.info("Stored credentials for Channel: %s", record.id)
 
-    def update_external_account_id(self, id: UUID, external_account_id: str | None) -> Channel:
+    def update_external_account_id(
+        self, id: UUID, external_account_id: str | None
+    ) -> Channel:
         record = self.db.get(Channel, id)
         if record is None:
             raise ValueError(f"Channel {id} not found")
@@ -83,9 +85,10 @@ class ChannelService:
         if record is None:
             raise ValueError(f"Channel {id} not found")
 
-        post_count = self.db.scalar(
-            select(func.count(Post.id)).where(Post.channel_id == id)
-        ) or 0
+        post_count = (
+            self.db.scalar(select(func.count(Post.id)).where(Post.channel_id == id))
+            or 0
+        )
         if post_count > 0:
             raise ValueError(
                 f"Cannot delete channel {record.name}: {post_count} posts reference it. "

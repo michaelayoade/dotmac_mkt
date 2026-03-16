@@ -85,12 +85,16 @@ class AnalyticsService:
             )
             .where(ChannelMetric.metric_date >= start_date)
             .where(ChannelMetric.metric_date <= end_date)
-            .where(ChannelMetric.metric_type.in_([
-                MetricType.impressions,
-                MetricType.reach,
-                MetricType.clicks,
-                MetricType.engagement,
-            ]))
+            .where(
+                ChannelMetric.metric_type.in_(
+                    [
+                        MetricType.impressions,
+                        MetricType.reach,
+                        MetricType.clicks,
+                        MetricType.engagement,
+                    ]
+                )
+            )
         )
         if channel_id is not None:
             stmt = stmt.where(ChannelMetric.channel_id == channel_id)
@@ -103,12 +107,16 @@ class AnalyticsService:
         for row in rows:
             d = row.metric_date
             if d not in by_date:
-                by_date[d] = {"impressions": 0, "reach": 0, "clicks": 0, "engagement": 0}
+                by_date[d] = {
+                    "impressions": 0,
+                    "reach": 0,
+                    "clicks": 0,
+                    "engagement": 0,
+                }
             by_date[d][row.metric_type.value] = int(row.total)
 
         return [
-            {"date": d.isoformat(), **metrics}
-            for d, metrics in sorted(by_date.items())
+            {"date": d.isoformat(), **metrics} for d, metrics in sorted(by_date.items())
         ]
 
     def upsert_metric(
@@ -135,7 +143,9 @@ class AnalyticsService:
         if existing is not None:
             existing.value = value
             self.db.flush()
-            logger.info("Updated metric %s for channel %s", metric_type.value, channel_id)
+            logger.info(
+                "Updated metric %s for channel %s", metric_type.value, channel_id
+            )
             return existing
 
         record = ChannelMetric(

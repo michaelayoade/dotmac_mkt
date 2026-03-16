@@ -50,7 +50,7 @@ class TestWebAuth:
         assert "/admin/login" in response.headers.get("location", "")
 
     def test_admin_redirects_without_auth(self, client):
-        response = client.get("/admin", follow_redirects=False)
+        response = client.get("/", follow_redirects=False)
         assert response.status_code == 302
         assert "/admin/login" in response.headers.get("location", "")
 
@@ -58,9 +58,9 @@ class TestWebAuth:
         self, client, person, auth_session, auth_token
     ):
         response = client.get(
-            "/admin",
+            "/",
             cookies={"access_token": auth_token},
             follow_redirects=False,
         )
-        # Should succeed or redirect to /admin/ (trailing slash normalization)
+        # Should succeed or redirect (trailing slash normalization)
         assert response.status_code in (200, 307)

@@ -27,7 +27,9 @@ class Post(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("campaigns.id", ondelete="CASCADE")
     )
     channel_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("channels.id", ondelete="SET NULL"),
+        nullable=True,
     )
     title: Mapped[str] = mapped_column(String(300))
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -40,9 +42,7 @@ class Post(TimestampMixin, Base):
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    external_post_id: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )
+    external_post_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("people.id")
     )

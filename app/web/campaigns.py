@@ -166,7 +166,9 @@ def campaign_detail(
     campaign_svc = CampaignService(db)
     record = campaign_svc.get_by_id(id)
     if record is None:
-        return RedirectResponse(url="/campaigns?error=Campaign+not+found", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Campaign+not+found", status_code=302
+        )
 
     post_svc = PostService(db)
     all_posts = post_svc.list_all(campaign_id=id)
@@ -201,7 +203,10 @@ def campaign_tab(
     campaign_svc = CampaignService(db)
     record = campaign_svc.get_by_id(id)
     if record is None:
-        return HTMLResponse(content="<p class='text-sm text-red-500'>Campaign not found</p>", status_code=404)
+        return HTMLResponse(
+            content="<p class='text-sm text-red-500'>Campaign not found</p>",
+            status_code=404,
+        )
 
     ctx: dict = {"request": request, "campaign": record}
 
@@ -234,9 +239,13 @@ def edit_campaign_form(
     campaign_svc = CampaignService(db)
     record = campaign_svc.get_by_id(id)
     if record is None:
-        return RedirectResponse(url="/campaigns?error=Campaign+not+found", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Campaign+not+found", status_code=302
+        )
     if not _can_edit_campaign(db, record, UUID(auth["person_id"])):
-        return RedirectResponse(url="/campaigns?error=Permission+denied", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Permission+denied", status_code=302
+        )
 
     ctx = {
         "request": request,
@@ -259,15 +268,21 @@ async def edit_campaign_submit(
     campaign_svc = CampaignService(db)
     record = campaign_svc.get_by_id(id)
     if record is None:
-        return RedirectResponse(url="/campaigns?error=Campaign+not+found", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Campaign+not+found", status_code=302
+        )
     if not _can_edit_campaign(db, record, UUID(auth["person_id"])):
-        return RedirectResponse(url="/campaigns?error=Permission+denied", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Permission+denied", status_code=302
+        )
 
     form = await request.form()
     data = CampaignUpdate(
         name=str(form.get("name", "")) or None,
         description=str(form.get("description", "")) or None,
-        status=CampaignStatus(str(form.get("status", ""))) if form.get("status") else None,
+        status=CampaignStatus(str(form.get("status", "")))
+        if form.get("status")
+        else None,
         start_date=str(form.get("start_date", "")) or None,
         end_date=str(form.get("end_date", "")) or None,
     )
@@ -278,7 +293,9 @@ async def edit_campaign_submit(
         db.commit()
         logger.info("Campaign updated via web: %s", id)
     except ValueError:
-        return RedirectResponse(url="/campaigns?error=Campaign+not+found", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Campaign+not+found", status_code=302
+        )
 
     return RedirectResponse(url=f"/campaigns/{id}", status_code=302)
 
@@ -293,9 +310,13 @@ def archive_campaign(
     campaign_svc = CampaignService(db)
     record = campaign_svc.get_by_id(id)
     if record is None:
-        return RedirectResponse(url="/campaigns?error=Campaign+not+found", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Campaign+not+found", status_code=302
+        )
     if not _can_edit_campaign(db, record, UUID(auth["person_id"])):
-        return RedirectResponse(url="/campaigns?error=Permission+denied", status_code=302)
+        return RedirectResponse(
+            url="/campaigns?error=Permission+denied", status_code=302
+        )
     try:
         campaign_svc.archive(id)
         db.commit()

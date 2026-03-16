@@ -148,11 +148,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     "Rate limiter: Redis unavailable on auth path %s", clean_path
                 )
-                return JSONResponse(
-                    status_code=503,
-                    content={"detail": "Service temporarily unavailable"},
-                )
-            # If Redis is unavailable for non-auth routes, allow the request (fail-open)
             return await call_next(request)  # type: ignore[call-arg]
 
         client_ip = _get_client_ip(request)
@@ -174,11 +169,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         except Exception:
             if _is_auth_path(clean_path):
                 logger.warning("Rate limiter: Redis error on auth path %s", clean_path)
-                return JSONResponse(
-                    status_code=503,
-                    content={"detail": "Service temporarily unavailable"},
-                )
-            logger.debug("Rate limiter: Redis error, allowing request")
+            else:
+                logger.debug("Rate limiter: Redis error, allowing request")
             return await call_next(request)  # type: ignore[call-arg]
 
         if current_count >= max_requests:

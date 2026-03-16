@@ -64,7 +64,9 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                 resp.raise_for_status()
                 data = resp.json()
                 self.access_token = data.get("access_token", self.access_token)
-                logger.info("Google Analytics token refreshed for property %s", self.property_id)
+                logger.info(
+                    "Google Analytics token refreshed for property %s", self.property_id
+                )
                 return data
         except httpx.HTTPError as e:
             logger.warning("Google Analytics token refresh failed: %s", e)
@@ -163,8 +165,6 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                     )
         return results
 
-    async def fetch_posts(
-        self, since: datetime | None = None
-    ) -> list[PostData]:
+    async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """GA4 does not have posts — return empty list."""
         return []

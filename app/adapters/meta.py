@@ -83,7 +83,9 @@ class MetaAdapter(ChannelAdapter):
     async def disconnect(self) -> None:
         """Revoke permissions (best-effort)."""
         try:
-            async with httpx.AsyncClient(timeout=min(self.timeout_seconds, 15)) as client:
+            async with httpx.AsyncClient(
+                timeout=min(self.timeout_seconds, 15)
+            ) as client:
                 resp = await client.delete(
                     f"{self.graph_api}/me/permissions",
                     headers=self._headers(),
@@ -96,7 +98,9 @@ class MetaAdapter(ChannelAdapter):
     async def validate_connection(self) -> bool:
         """Check whether the access token is still valid."""
         try:
-            async with httpx.AsyncClient(timeout=min(self.timeout_seconds, 15)) as client:
+            async with httpx.AsyncClient(
+                timeout=min(self.timeout_seconds, 15)
+            ) as client:
                 resp = await client.get(
                     f"{self.graph_api}/me",
                     headers=self._headers(),
@@ -147,9 +151,7 @@ class MetaAdapter(ChannelAdapter):
                     logger.warning("Skipping malformed metric entry: %s", e)
         return results
 
-    async def fetch_posts(
-        self, since: datetime | None = None
-    ) -> list[PostData]:
+    async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Fetch media/feed posts from the account."""
         params: dict[str, str] = {"fields": "id,message,created_time"}
         if since:

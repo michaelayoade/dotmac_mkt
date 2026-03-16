@@ -44,34 +44,44 @@ def dashboard(
     upcoming_posts = post_svc.list_scheduled(days_ahead=7)[:10]
 
     # Channel statuses
-    channels = list(
-        db.scalars(select(Channel).order_by(Channel.name)).all()
-    )
+    channels = list(db.scalars(select(Channel).order_by(Channel.name)).all())
 
     # Quick stats
     person_id = UUID(auth["person_id"])
-    total_assets = db.scalar(
-        select(func.count(Asset.id)).where(Asset.drive_status != DriveStatus.missing)
-    ) or 0
+    total_assets = (
+        db.scalar(
+            select(func.count(Asset.id)).where(
+                Asset.drive_status != DriveStatus.missing
+            )
+        )
+        or 0
+    )
     total_campaigns = campaign_svc.count()
-    active_tasks = db.scalar(
-        select(func.count(Task.id)).where(
-            Task.status.in_([TaskStatus.todo, TaskStatus.in_progress]),
-            Task.assignee_id == person_id,
+    active_tasks = (
+        db.scalar(
+            select(func.count(Task.id)).where(
+                Task.status.in_([TaskStatus.todo, TaskStatus.in_progress]),
+                Task.assignee_id == person_id,
+            )
         )
-    ) or 0
-    connected_channels = db.scalar(
-        select(func.count(Channel.id)).where(
-            Channel.status == ChannelStatus.connected
+        or 0
+    )
+    connected_channels = (
+        db.scalar(
+            select(func.count(Channel.id)).where(
+                Channel.status == ChannelStatus.connected
+            )
         )
-    ) or 0
+        or 0
+    )
 
     # Channel health for badges
     channel_health = [
         {
             "name": ch.name,
             "status": (
-                "healthy" if ch.status == ChannelStatus.connected
+                "healthy"
+                if ch.status == ChannelStatus.connected
                 else ("error" if ch.status == ChannelStatus.error else "disconnected")
             ),
         }
@@ -87,7 +97,8 @@ def dashboard(
 
     # Percent change vs prior 7 days
     prior_data = analytics_svc.get_daily_totals(
-        start_date=today_date - timedelta(days=13), end_date=today_date - timedelta(days=7)
+        start_date=today_date - timedelta(days=13),
+        end_date=today_date - timedelta(days=7),
     )
     current_impressions = sum(d["impressions"] for d in sparkline_data)
     prior_impressions = sum(d["impressions"] for d in prior_data)

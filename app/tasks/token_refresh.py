@@ -93,7 +93,9 @@ def token_refresh():
 
             creds = cred_svc.decrypt(channel.credentials_encrypted)
             if not creds:
-                logger.warning("Cannot decrypt creds for %s, marking error", channel.name)
+                logger.warning(
+                    "Cannot decrypt creds for %s, marking error", channel.name
+                )
                 channel_svc.update_status(channel.id, ChannelStatus.error)
                 continue
 

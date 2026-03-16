@@ -64,23 +64,39 @@ def analytics_overview(
         )
         totals: dict[str, float] = {}
         for m in ch_metrics:
-            totals[m.metric_type.value] = totals.get(m.metric_type.value, 0) + float(m.value)
-        channel_metrics.append({
-            "channel_name": ch.name,
-            "impressions": int(totals.get("impressions", 0)),
-            "reach": int(totals.get("reach", 0)),
-            "clicks": int(totals.get("clicks", 0)),
-            "engagement": int(totals.get("engagement", 0)),
-        })
+            totals[m.metric_type.value] = totals.get(m.metric_type.value, 0) + float(
+                m.value
+            )
+        channel_metrics.append(
+            {
+                "channel_name": ch.name,
+                "impressions": int(totals.get("impressions", 0)),
+                "reach": int(totals.get("reach", 0)),
+                "clicks": int(totals.get("clicks", 0)),
+                "engagement": int(totals.get("engagement", 0)),
+            }
+        )
 
     # Daily totals for time-series chart
     daily_totals = analytics_svc.get_daily_totals(start_date=d_start, end_date=d_end)
 
     # Preset date ranges for quick links
     preset_dates = [
-        {"label": "7 days", "start": (today - timedelta(days=7)).isoformat(), "end": today.isoformat()},
-        {"label": "30 days", "start": (today - timedelta(days=30)).isoformat(), "end": today.isoformat()},
-        {"label": "90 days", "start": (today - timedelta(days=90)).isoformat(), "end": today.isoformat()},
+        {
+            "label": "7 days",
+            "start": (today - timedelta(days=7)).isoformat(),
+            "end": today.isoformat(),
+        },
+        {
+            "label": "30 days",
+            "start": (today - timedelta(days=30)).isoformat(),
+            "end": today.isoformat(),
+        },
+        {
+            "label": "90 days",
+            "start": (today - timedelta(days=90)).isoformat(),
+            "end": today.isoformat(),
+        },
     ]
 
     ctx = {
@@ -156,9 +172,9 @@ def campaign_analytics(
                         "clicks": 0,
                         "engagement": 0,
                     }
-                channel_data[ch_id][m.metric_type.value] = (
-                    channel_data[ch_id].get(m.metric_type.value, 0) + float(m.value)
-                )
+                channel_data[ch_id][m.metric_type.value] = channel_data[ch_id].get(
+                    m.metric_type.value, 0
+                ) + float(m.value)
 
     # Count posts per channel in this campaign
     post_counts = db.execute(
@@ -213,17 +229,17 @@ def export_metrics_csv(
     # Build CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(
-        ["date", "channel_id", "post_id", "metric_type", "value"]
-    )
+    writer.writerow(["date", "channel_id", "post_id", "metric_type", "value"])
     for m in metrics:
-        writer.writerow([
-            m.metric_date.isoformat(),
-            str(m.channel_id),
-            str(m.post_id) if m.post_id else "",
-            m.metric_type.value,
-            str(float(m.value)),
-        ])
+        writer.writerow(
+            [
+                m.metric_date.isoformat(),
+                str(m.channel_id),
+                str(m.post_id) if m.post_id else "",
+                m.metric_type.value,
+                str(float(m.value)),
+            ]
+        )
 
     output.seek(0)
     filename = f"analytics_{d_start}_{d_end}.csv"

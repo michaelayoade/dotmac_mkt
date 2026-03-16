@@ -69,7 +69,9 @@ class GoogleAdsAdapter(ChannelAdapter):
                 resp.raise_for_status()
                 data = resp.json()
                 self.access_token = data.get("access_token", self.access_token)
-                logger.info("Google Ads token refreshed for customer %s", self.customer_id)
+                logger.info(
+                    "Google Ads token refreshed for customer %s", self.customer_id
+                )
                 return data
         except httpx.HTTPError as e:
             logger.warning("Google Ads token refresh failed: %s", e)
@@ -157,8 +159,6 @@ class GoogleAdsAdapter(ChannelAdapter):
                     )
         return results
 
-    async def fetch_posts(
-        self, since: datetime | None = None
-    ) -> list[PostData]:
+    async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Google Ads does not have posts — return empty list."""
         return []

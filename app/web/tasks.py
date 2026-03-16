@@ -43,9 +43,24 @@ def _render_kanban(request: Request, db: Session, auth: dict) -> HTMLResponse:
         if qs.get("assignee_id") and qs["assignee_id"][0]:
             assignee_id = UUID(qs["assignee_id"][0])
 
-    todo = task_svc.list_all(campaign_id=campaign_id, assignee_id=assignee_id, status=TaskStatus.todo, limit=100)
-    in_progress = task_svc.list_all(campaign_id=campaign_id, assignee_id=assignee_id, status=TaskStatus.in_progress, limit=100)
-    done = task_svc.list_all(campaign_id=campaign_id, assignee_id=assignee_id, status=TaskStatus.done, limit=100)
+    todo = task_svc.list_all(
+        campaign_id=campaign_id,
+        assignee_id=assignee_id,
+        status=TaskStatus.todo,
+        limit=100,
+    )
+    in_progress = task_svc.list_all(
+        campaign_id=campaign_id,
+        assignee_id=assignee_id,
+        status=TaskStatus.in_progress,
+        limit=100,
+    )
+    done = task_svc.list_all(
+        campaign_id=campaign_id,
+        assignee_id=assignee_id,
+        status=TaskStatus.done,
+        limit=100,
+    )
 
     ctx = {
         "request": request,
@@ -95,9 +110,11 @@ def task_kanban(
     campaigns = campaign_svc.list_all(limit=100)
 
     # Team members for assignee dropdown
-    team_members = list(db.scalars(
-        select(Person).where(Person.is_active.is_(True)).order_by(Person.first_name)
-    ).all())
+    team_members = list(
+        db.scalars(
+            select(Person).where(Person.is_active.is_(True)).order_by(Person.first_name)
+        ).all()
+    )
 
     ctx = {
         "request": request,
@@ -130,7 +147,9 @@ async def create_task(
         description=str(form.get("description", "")) or None,
         status=TaskStatus(str(form.get("status", "todo"))),
         campaign_id=UUID(str(form["campaign_id"])) if form.get("campaign_id") else None,
-        assignee_id=UUID(str(form.get("assignee_id"))) if form.get("assignee_id") else None,
+        assignee_id=UUID(str(form.get("assignee_id")))
+        if form.get("assignee_id")
+        else None,
         due_date=str(form.get("due_date", "")) or None,
     )
 
