@@ -20,102 +20,68 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
-    # ── Enums ────────────────────────────────────────────
-    campaignstatus = postgresql.ENUM(
-        "draft",
-        "active",
-        "paused",
-        "completed",
-        "archived",
-        name="campaignstatus",
-        create_type=False,
-    )
-    campaignstatus.create(conn, checkfirst=True)
-
-    campaignmemberrole = postgresql.ENUM(
-        "owner",
-        "contributor",
-        name="campaignmemberrole",
-        create_type=False,
-    )
-    campaignmemberrole.create(conn, checkfirst=True)
-
-    channelprovider = postgresql.ENUM(
-        "meta_instagram",
-        "meta_facebook",
-        "twitter",
-        "linkedin",
-        "google_ads",
-        "google_analytics",
-        name="channelprovider",
-        create_type=False,
-    )
-    channelprovider.create(conn, checkfirst=True)
-
-    channelstatus = postgresql.ENUM(
-        "connected",
-        "disconnected",
-        "error",
-        name="channelstatus",
-        create_type=False,
-    )
-    channelstatus.create(conn, checkfirst=True)
-
-    poststatus = postgresql.ENUM(
-        "draft",
-        "planned",
-        name="poststatus",
-        create_type=False,
-    )
-    poststatus.create(conn, checkfirst=True)
-
-    assettype = postgresql.ENUM(
-        "image",
-        "video",
-        "document",
-        "template",
-        "brand_guide",
-        name="assettype",
-        create_type=False,
-    )
-    assettype.create(conn, checkfirst=True)
-
-    drivestatus = postgresql.ENUM(
-        "active",
-        "missing",
-        "access_denied",
-        name="drivestatus",
-        create_type=False,
-    )
-    drivestatus.create(conn, checkfirst=True)
-
-    taskstatus = postgresql.ENUM(
-        "todo",
-        "in_progress",
-        "done",
-        name="taskstatus",
-        create_type=False,
-    )
-    taskstatus.create(conn, checkfirst=True)
-
-    metrictype = postgresql.ENUM(
-        "impressions",
-        "reach",
-        "clicks",
-        "engagement",
-        "spend",
-        "conversions",
-        "likes",
-        "shares",
-        "retweets",
-        "sessions",
-        "pageviews",
-        "users",
-        "bounce_rate",
-        name="metrictype",
-        create_type=False,
-    )
-    metrictype.create(conn, checkfirst=True)
+    # ── Pre-create enum types safely ──────────────────────
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE campaignstatus AS ENUM "
+        "('draft', 'active', 'paused', 'completed', 'archived'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE campaignmemberrole AS ENUM ('owner', 'contributor'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE channelprovider AS ENUM "
+        "('meta_instagram', 'meta_facebook', 'twitter', 'linkedin', "
+        "'google_ads', 'google_analytics'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE channelstatus AS ENUM ('connected', 'disconnected', 'error'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE poststatus AS ENUM ('draft', 'planned'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE assettype AS ENUM "
+        "('image', 'video', 'document', 'template', 'brand_guide'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE drivestatus AS ENUM ('active', 'missing', 'access_denied'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE taskstatus AS ENUM ('todo', 'in_progress', 'done'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE metrictype AS ENUM "
+        "('impressions', 'reach', 'clicks', 'engagement', 'spend', "
+        "'conversions', 'likes', 'shares', 'retweets', 'sessions', "
+        "'pageviews', 'users', 'bounce_rate'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
 
     # ── campaigns ────────────────────────────────────────
     if not inspector.has_table("campaigns"):
@@ -126,7 +92,7 @@ def upgrade() -> None:
             sa.Column("description", sa.Text(), nullable=True),
             sa.Column(
                 "status",
-                sa.Enum(
+                postgresql.ENUM(
                     "draft",
                     "active",
                     "paused",
@@ -161,7 +127,7 @@ def upgrade() -> None:
             sa.Column("name", sa.String(200), nullable=False),
             sa.Column(
                 "provider",
-                sa.Enum(
+                postgresql.ENUM(
                     "meta_instagram",
                     "meta_facebook",
                     "twitter",
@@ -175,7 +141,7 @@ def upgrade() -> None:
             ),
             sa.Column(
                 "status",
-                sa.Enum(
+                postgresql.ENUM(
                     "connected",
                     "disconnected",
                     "error",
@@ -203,7 +169,7 @@ def upgrade() -> None:
             sa.Column("name", sa.String(300), nullable=False),
             sa.Column(
                 "asset_type",
-                sa.Enum(
+                postgresql.ENUM(
                     "image",
                     "video",
                     "document",
@@ -222,7 +188,7 @@ def upgrade() -> None:
             sa.Column("tags", postgresql.JSONB(), server_default="[]"),
             sa.Column(
                 "drive_status",
-                sa.Enum(
+                postgresql.ENUM(
                     "active",
                     "missing",
                     "access_denied",
@@ -267,7 +233,10 @@ def upgrade() -> None:
             sa.Column("content", sa.Text(), nullable=True),
             sa.Column(
                 "status",
-                sa.Enum("draft", "planned", name="poststatus", create_type=False),
+                postgresql.ENUM(
+                    "draft", "planned",
+                    name="poststatus", create_type=False,
+                ),
                 server_default="draft",
             ),
             sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=True),
@@ -304,8 +273,9 @@ def upgrade() -> None:
             sa.Column("description", sa.Text(), nullable=True),
             sa.Column(
                 "status",
-                sa.Enum(
-                    "todo", "in_progress", "done", name="taskstatus", create_type=False
+                postgresql.ENUM(
+                    "todo", "in_progress", "done",
+                    name="taskstatus", create_type=False,
                 ),
                 server_default="todo",
             ),
@@ -351,7 +321,7 @@ def upgrade() -> None:
             sa.Column("metric_date", sa.Date(), nullable=False),
             sa.Column(
                 "metric_type",
-                sa.Enum(
+                postgresql.ENUM(
                     "impressions",
                     "reach",
                     "clicks",
@@ -448,8 +418,9 @@ def upgrade() -> None:
             ),
             sa.Column(
                 "role",
-                sa.Enum(
-                    "owner", "contributor", name="campaignmemberrole", create_type=False
+                postgresql.ENUM(
+                    "owner", "contributor",
+                    name="campaignmemberrole", create_type=False,
                 ),
                 server_default="contributor",
             ),

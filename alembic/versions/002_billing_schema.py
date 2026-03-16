@@ -7,6 +7,7 @@ Create Date: 2026-02-16 00:00:00.000000
 """
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -17,6 +18,77 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # ── Pre-create enum types safely ──────────────────────
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE pricetype AS ENUM ('one_time', 'recurring'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE billingscheme AS ENUM ('per_unit', 'tiered'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE recurringinterval AS ENUM ('day', 'week', 'month', 'year'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE subscriptionstatus AS ENUM "
+        "('incomplete', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE invoicestatus AS ENUM ('draft', 'open', 'paid', 'void', 'uncollectible'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE paymentmethodtype AS ENUM ('card', 'bank_account', 'wallet', 'other'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE paymentintentstatus AS ENUM "
+        "('requires_payment_method', 'requires_confirmation', 'processing', "
+        "'succeeded', 'canceled', 'requires_action'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE usageaction AS ENUM ('increment', 'set'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE couponduration AS ENUM ('once', 'repeating', 'forever'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE entitlementvaluetype AS ENUM ('boolean', 'numeric', 'string', 'unlimited'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE webhookeventstatus AS ENUM ('pending', 'processed', 'failed'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+
     # Products
     op.create_table(
         "products",
@@ -39,17 +111,26 @@ def upgrade() -> None:
         sa.Column("unit_amount", sa.Integer(), nullable=False),
         sa.Column(
             "type",
-            sa.Enum("one_time", "recurring", name="pricetype"),
+            postgresql.ENUM(
+                "one_time", "recurring",
+                name="pricetype", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column(
             "billing_scheme",
-            sa.Enum("per_unit", "tiered", name="billingscheme"),
+            postgresql.ENUM(
+                "per_unit", "tiered",
+                name="billingscheme", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column(
             "recurring_interval",
-            sa.Enum("day", "week", "month", "year", name="recurringinterval"),
+            postgresql.ENUM(
+                "day", "week", "month", "year",
+                name="recurringinterval", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column("recurring_interval_count", sa.Integer(), nullable=True),
@@ -93,15 +174,10 @@ def upgrade() -> None:
         sa.Column("customer_id", sa.UUID(), nullable=False),
         sa.Column(
             "status",
-            sa.Enum(
-                "incomplete",
-                "trialing",
-                "active",
-                "past_due",
-                "canceled",
-                "unpaid",
-                "paused",
-                name="subscriptionstatus",
+            postgresql.ENUM(
+                "incomplete", "trialing", "active", "past_due",
+                "canceled", "unpaid", "paused",
+                name="subscriptionstatus", create_type=False,
             ),
             nullable=True,
         ),
@@ -159,8 +235,9 @@ def upgrade() -> None:
         sa.Column("number", sa.String(length=80), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(
-                "draft", "open", "paid", "void", "uncollectible", name="invoicestatus"
+            postgresql.ENUM(
+                "draft", "open", "paid", "void", "uncollectible",
+                name="invoicestatus", create_type=False,
             ),
             nullable=True,
         ),
@@ -223,8 +300,9 @@ def upgrade() -> None:
         sa.Column("customer_id", sa.UUID(), nullable=False),
         sa.Column(
             "type",
-            sa.Enum(
-                "card", "bank_account", "wallet", "other", name="paymentmethodtype"
+            postgresql.ENUM(
+                "card", "bank_account", "wallet", "other",
+                name="paymentmethodtype", create_type=False,
             ),
             nullable=False,
         ),
@@ -252,14 +330,10 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column(
             "status",
-            sa.Enum(
-                "requires_payment_method",
-                "requires_confirmation",
-                "processing",
-                "succeeded",
-                "canceled",
-                "requires_action",
-                name="paymentintentstatus",
+            postgresql.ENUM(
+                "requires_payment_method", "requires_confirmation",
+                "processing", "succeeded", "canceled", "requires_action",
+                name="paymentintentstatus", create_type=False,
             ),
             nullable=True,
         ),
@@ -290,7 +364,10 @@ def upgrade() -> None:
         sa.Column("quantity", sa.Integer(), nullable=False),
         sa.Column(
             "action",
-            sa.Enum("increment", "set", name="usageaction"),
+            postgresql.ENUM(
+                "increment", "set",
+                name="usageaction", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
@@ -318,7 +395,10 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(length=3), nullable=True),
         sa.Column(
             "duration",
-            sa.Enum("once", "repeating", "forever", name="couponduration"),
+            postgresql.ENUM(
+                "once", "repeating", "forever",
+                name="couponduration", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("duration_in_months", sa.Integer(), nullable=True),
@@ -362,8 +442,9 @@ def upgrade() -> None:
         sa.Column("feature_key", sa.String(length=120), nullable=False),
         sa.Column(
             "value_type",
-            sa.Enum(
-                "boolean", "numeric", "string", "unlimited", name="entitlementvaluetype"
+            postgresql.ENUM(
+                "boolean", "numeric", "string", "unlimited",
+                name="entitlementvaluetype", create_type=False,
             ),
             nullable=False,
         ),
@@ -390,7 +471,10 @@ def upgrade() -> None:
         sa.Column("payload", sa.JSON(), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("pending", "processed", "failed", name="webhookeventstatus"),
+            postgresql.ENUM(
+                "pending", "processed", "failed",
+                name="webhookeventstatus", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column("error_message", sa.Text(), nullable=True),

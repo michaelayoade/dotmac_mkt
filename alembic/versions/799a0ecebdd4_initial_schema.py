@@ -7,6 +7,7 @@ Create Date: 2026-01-09 07:31:51.528180
 """
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -17,6 +18,68 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # ── Pre-create enum types safely ──────────────────────
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE gender AS ENUM ('unknown', 'female', 'male', 'non_binary', 'other'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE contactmethod AS ENUM ('email', 'phone', 'sms', 'push'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE personstatus AS ENUM ('active', 'inactive', 'archived'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE authprovider AS ENUM ('local', 'sso'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE mfamethodtype AS ENUM ('totp', 'sms', 'email'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE sessionstatus AS ENUM ('active', 'revoked', 'expired'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE auditactortype AS ENUM ('system', 'user', 'api_key', 'service'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE settingdomain AS ENUM ('auth', 'audit', 'scheduler'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE settingvaluetype AS ENUM ('string', 'integer', 'boolean', 'json'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN "
+        "CREATE TYPE scheduletype AS ENUM ('interval'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+
     # Core people + auth tables
     op.create_table(
         "people",
@@ -32,12 +95,18 @@ def upgrade() -> None:
         sa.Column("date_of_birth", sa.Date(), nullable=True),
         sa.Column(
             "gender",
-            sa.Enum("unknown", "female", "male", "non_binary", "other", name="gender"),
+            postgresql.ENUM(
+                "unknown", "female", "male", "non_binary", "other",
+                name="gender", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column(
             "preferred_contact_method",
-            sa.Enum("email", "phone", "sms", "push", name="contactmethod"),
+            postgresql.ENUM(
+                "email", "phone", "sms", "push",
+                name="contactmethod", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column("locale", sa.String(length=16), nullable=True),
@@ -50,7 +119,10 @@ def upgrade() -> None:
         sa.Column("country_code", sa.String(length=2), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("active", "inactive", "archived", name="personstatus"),
+            postgresql.ENUM(
+                "active", "inactive", "archived",
+                name="personstatus", create_type=False,
+            ),
             nullable=True,
         ),
         sa.Column("is_active", sa.Boolean(), nullable=False),
@@ -68,7 +140,9 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("person_id", sa.UUID(), nullable=False),
         sa.Column(
-            "provider", sa.Enum("local", "sso", name="authprovider"), nullable=False
+            "provider",
+            postgresql.ENUM("local", "sso", name="authprovider", create_type=False),
+            nullable=False,
         ),
         sa.Column("username", sa.String(length=150), nullable=True),
         sa.Column("password_hash", sa.String(length=255), nullable=True),
@@ -90,7 +164,10 @@ def upgrade() -> None:
         sa.Column("person_id", sa.UUID(), nullable=False),
         sa.Column(
             "method_type",
-            sa.Enum("totp", "sms", "email", name="mfamethodtype"),
+            postgresql.ENUM(
+                "totp", "sms", "email",
+                name="mfamethodtype", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("label", sa.String(length=120), nullable=True),
@@ -122,7 +199,10 @@ def upgrade() -> None:
         sa.Column("person_id", sa.UUID(), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("active", "revoked", "expired", name="sessionstatus"),
+            postgresql.ENUM(
+                "active", "revoked", "expired",
+                name="sessionstatus", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("token_hash", sa.String(length=255), nullable=False),
@@ -211,7 +291,10 @@ def upgrade() -> None:
         sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
             "actor_type",
-            sa.Enum("system", "user", "api_key", "service", name="auditactortype"),
+            postgresql.ENUM(
+                "system", "user", "api_key", "service",
+                name="auditactortype", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("actor_id", sa.String(length=120), nullable=True),
@@ -234,13 +317,19 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column(
             "domain",
-            sa.Enum("auth", "audit", "scheduler", name="settingdomain"),
+            postgresql.ENUM(
+                "auth", "audit", "scheduler",
+                name="settingdomain", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("key", sa.String(length=120), nullable=False),
         sa.Column(
             "value_type",
-            sa.Enum("string", "integer", "boolean", "json", name="settingvaluetype"),
+            postgresql.ENUM(
+                "string", "integer", "boolean", "json",
+                name="settingvaluetype", create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("value_text", sa.Text(), nullable=True),
@@ -260,7 +349,9 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=160), nullable=False),
         sa.Column("task_name", sa.String(length=200), nullable=False),
         sa.Column(
-            "schedule_type", sa.Enum("interval", name="scheduletype"), nullable=False
+            "schedule_type",
+            postgresql.ENUM("interval", name="scheduletype", create_type=False),
+            nullable=False,
         ),
         sa.Column("interval_seconds", sa.Integer(), nullable=False),
         sa.Column("args_json", sa.JSON(), nullable=True),

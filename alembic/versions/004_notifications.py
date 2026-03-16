@@ -21,16 +21,13 @@ def upgrade() -> None:
     inspector = sa.inspect(conn)
 
     if not inspector.has_table("notifications"):
-        notification_type = postgresql.ENUM(
-            "info",
-            "success",
-            "warning",
-            "error",
-            "system",
-            name="notificationtype",
-            create_type=False,
-        )
-        notification_type.create(conn, checkfirst=True)
+        op.execute(sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE notificationtype AS ENUM "
+            "('info', 'success', 'warning', 'error', 'system'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        ))
 
         op.create_table(
             "notifications",
@@ -41,7 +38,7 @@ def upgrade() -> None:
             sa.Column("message", sa.Text(), nullable=True),
             sa.Column(
                 "type",
-                sa.Enum(
+                postgresql.ENUM(
                     "info",
                     "success",
                     "warning",
