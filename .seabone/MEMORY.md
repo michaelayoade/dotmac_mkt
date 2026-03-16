@@ -217,4 +217,3 @@
 - **Fix pipeline execution gaps**: PRs claimed to fix c1-2 and c1-3 were merged but the actual code changes were NOT applied to the target files. Before marking a finding as fixed, Sentinel must verify by reading the source file, not just trusting PR descriptions or memory entries.
 - **`| safe` on `tojson` fixed**: audit/detail.html and billing/webhook_events/detail.html `| safe` removed in PR #2 (c1-5 and c1-6, both confirmed fixed by reading files 2026-02-27).
 - `.gitignore` now includes `.aider*`, `.seabone/` runtime dirs, and `.worktrees/` (committed 2026-02-27).
-
