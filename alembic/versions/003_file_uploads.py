@@ -22,10 +22,14 @@ def upgrade() -> None:
 
     if not inspector.has_table("file_uploads"):
         # Create enum type if it doesn't exist
-        file_upload_status = postgresql.ENUM(
-            "pending", "active", "deleted", name="fileuploadstatus", create_type=False
+        op.execute(
+            sa.text(
+                "DO $$ BEGIN "
+                "CREATE TYPE fileuploadstatus AS ENUM ('pending', 'active', 'deleted'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; "
+                "END $$"
+            )
         )
-        file_upload_status.create(conn, checkfirst=True)
 
         op.create_table(
             "file_uploads",

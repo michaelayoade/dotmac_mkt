@@ -81,7 +81,7 @@ class MockSettings:
     canonical_host = None
     canonical_scheme = "https"
     storage_backend = "local"
-    storage_local_dir = "/tmp/test_uploads"
+    storage_local_dir = "/tmp/test_uploads"  # noqa: S108
     storage_url_prefix = "/static/uploads"
     s3_bucket = ""
     s3_region = ""
