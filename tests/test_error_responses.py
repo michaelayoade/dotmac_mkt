@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.errors import register_error_handlers

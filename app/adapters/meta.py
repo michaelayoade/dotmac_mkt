@@ -11,29 +11,45 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-GRAPH_API = "https://graph.facebook.com/v19.0"
-
 
 class MetaAdapter(ChannelAdapter):
     """Adapter for Instagram and Facebook via Meta Graph API v19."""
 
-    def __init__(self, access_token: str, account_id: str) -> None:
+    def __init__(
+        self,
+        access_token: str,
+        account_id: str,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        graph_version: str = "v19.0",
+        timeout_seconds: int = 30,
+    ) -> None:
         self.access_token = access_token
         self.account_id = account_id
+        self.client_id = client_id or settings.meta_app_id
+        self.client_secret = client_secret or settings.meta_app_secret
+        self.graph_version = graph_version
+        self.timeout_seconds = timeout_seconds
+
+    @property
+    def graph_api(self) -> str:
+        return f"https://graph.facebook.com/{self.graph_version}"
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.access_token}"}
 
-    async def connect(self, auth_code: str) -> dict:
+    async def connect(
+        self, auth_code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> dict:
         """Exchange auth code for a long-lived access token."""
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             resp = await client.get(
-                f"{GRAPH_API}/oauth/access_token",
+                f"{self.graph_api}/oauth/access_token",
                 params={
-                    "client_id": settings.meta_app_id,
-                    "client_secret": settings.meta_app_secret,
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
                     "code": auth_code,
-                    "redirect_uri": "",  # must match app config
+                    "redirect_uri": redirect_uri,
                 },
             )
             resp.raise_for_status()
@@ -42,12 +58,34 @@ class MetaAdapter(ChannelAdapter):
             logger.info("Meta OAuth token exchanged for account %s", self.account_id)
             return data
 
+    async def refresh_token(self, refresh_token_value: str) -> dict | None:
+        """Exchange a long-lived token for a new one (Meta token refresh)."""
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.get(
+                    f"{self.graph_api}/oauth/access_token",
+                    params={
+                        "grant_type": "fb_exchange_token",
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                        "fb_exchange_token": refresh_token_value,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self.access_token = data.get("access_token", self.access_token)
+                logger.info("Meta token refreshed for account %s", self.account_id)
+                return data
+        except httpx.HTTPError as e:
+            logger.warning("Meta token refresh failed: %s", e)
+            return None
+
     async def disconnect(self) -> None:
         """Revoke permissions (best-effort)."""
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=min(self.timeout_seconds, 15)) as client:
                 resp = await client.delete(
-                    f"{GRAPH_API}/me/permissions",
+                    f"{self.graph_api}/me/permissions",
                     headers=self._headers(),
                 )
                 resp.raise_for_status()
@@ -58,9 +96,9 @@ class MetaAdapter(ChannelAdapter):
     async def validate_connection(self) -> bool:
         """Check whether the access token is still valid."""
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=min(self.timeout_seconds, 15)) as client:
                 resp = await client.get(
-                    f"{GRAPH_API}/me",
+                    f"{self.graph_api}/me",
                     headers=self._headers(),
                 )
                 return resp.status_code == 200
@@ -74,9 +112,9 @@ class MetaAdapter(ChannelAdapter):
         """Fetch insights (impressions, reach, engagement) for the account."""
         metrics_param = "impressions,reach,engagement"
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
                 resp = await client.get(
-                    f"{GRAPH_API}/{self.account_id}/insights",
+                    f"{self.graph_api}/{self.account_id}/insights",
                     headers=self._headers(),
                     params={
                         "metric": metrics_param,
@@ -118,16 +156,16 @@ class MetaAdapter(ChannelAdapter):
             params["since"] = str(int(since.timestamp()))
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
                 # Try /media first (Instagram), fall back to /feed (Facebook)
                 resp = await client.get(
-                    f"{GRAPH_API}/{self.account_id}/media",
+                    f"{self.graph_api}/{self.account_id}/media",
                     headers=self._headers(),
                     params=params,
                 )
                 if resp.status_code != 200:
                     resp = await client.get(
-                        f"{GRAPH_API}/{self.account_id}/feed",
+                        f"{self.graph_api}/{self.account_id}/feed",
                         headers=self._headers(),
                         params=params,
                     )

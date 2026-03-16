@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/form_macros.html" as forms %}
+
+{% block admin_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Connect Channel</h1>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose a provider and the external account identifier you want this app to sync.</p>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+    <form method="POST" action="/channels/create">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{ forms.select_field('provider', 'Provider', provider_options, selected=form_data.provider if form_data else '', required=true, help_text='Each provider maps to one channel record in this app.') }}
+            {{ forms.text_input('external_account_id', 'External Account ID', value=form_data.external_account_id if form_data else '', placeholder='Page ID, customer ID, property ID, or org ID', help_text='You can also leave this blank here and fill it on the channel card before connecting.') }}
+        </div>
+
+        <div class="mt-6 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 p-4">
+            <p class="text-sm font-medium text-slate-900 dark:text-white mb-2">Meta OAuth</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">For Meta, this page uses the App ID and App Secret saved in Settings. After OAuth, the app will discover accessible Facebook Pages and linked Instagram business accounts automatically.</p>
+        </div>
+
+        <div class="mt-6 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 p-4">
+            <p class="text-sm font-medium text-slate-900 dark:text-white mb-2">Provider IDs</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-500 dark:text-slate-400">
+                {% for provider, label in provider_labels.items() %}
+                <p><span class="font-medium text-slate-700 dark:text-slate-300">{{ provider_display_names.get(provider, provider) }}:</span> {{ label }}</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-6">
+            {{ forms.submit_button('Continue to OAuth', '/channels') }}
+        </div>
+    </form>
+</div>
+{% endblock %}

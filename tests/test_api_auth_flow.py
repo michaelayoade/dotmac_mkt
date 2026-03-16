@@ -1,12 +1,10 @@
 import uuid
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from app.models.auth import (
-    MFAMethod,
-    MFAMethodType,
     Session as AuthSession,
+)
+from app.models.auth import (
     SessionStatus,
     UserCredential,
 )
@@ -156,7 +154,7 @@ class TestSessionsAPI:
             status=SessionStatus.active,
             ip_address="192.168.1.1",
             user_agent="other-client",
-            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
         )
         db_session.add(other_session)
         db_session.commit()
@@ -185,7 +183,7 @@ class TestSessionsAPI:
                 status=SessionStatus.active,
                 ip_address=f"192.168.1.{i}",
                 user_agent=f"client-{i}",
-                expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+                expires_at=datetime.now(UTC) + timedelta(days=30),
             )
             db_session.add(session)
         db_session.commit()
@@ -279,7 +277,7 @@ class TestPasswordAPI:
             status=SessionStatus.active,
             ip_address="192.168.1.100",
             user_agent="other-client",
-            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
         )
         db_session.add(other_session)
         db_session.commit()
@@ -332,7 +330,7 @@ class TestPasswordAPI:
             status=SessionStatus.active,
             ip_address="192.168.1.200",
             user_agent="client-one",
-            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
         )
         session_two = AuthSession(
             person_id=person.id,
@@ -340,7 +338,7 @@ class TestPasswordAPI:
             status=SessionStatus.active,
             ip_address="192.168.1.201",
             user_agent="client-two",
-            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
         )
         db_session.add_all([session_one, session_two])
         db_session.commit()

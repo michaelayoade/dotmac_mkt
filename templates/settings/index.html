@@ -7,6 +7,8 @@
 <div class="space-y-6 max-w-3xl">
     <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Settings</h1>
 
+    {# Success/error shown via toast system (base.html consumeQueryMessages) #}
+
     {# Google Drive #}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
         <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
@@ -16,21 +18,13 @@
         <form method="POST" action="/settings/drive" class="p-5 space-y-4">
             {{ request.state.csrf_form | safe }}
 
-            {{ text_input("drive_folder_id", "Drive Folder ID", value=settings.drive_folder_id if settings is defined and settings.drive_folder_id else '', placeholder="e.g. 1A2B3C4D5E6F7G8H9I0J", help_text="The Google Drive folder ID where marketing assets are stored.") }}
+            {{ text_input("google_drive_folder_id", "Drive Folder ID", value=drive_config.folder_id if drive_config is defined and drive_config.folder_id else '', placeholder="e.g. 1A2B3C4D5E6F7G8H9I0J", help_text="The Google Drive folder ID where marketing assets are stored.") }}
 
             <div class="flex items-center gap-3">
                 <button type="submit" class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
                     Save Drive Settings
                 </button>
-                <button type="button"
-                        hx-post="/settings/drive/test"
-                        hx-target="#drive-test-result"
-                        hx-swap="innerHTML"
-                        class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700">
-                    Test Connection
-                </button>
             </div>
-            <div id="drive-test-result"></div>
         </form>
     </div>
 
@@ -43,47 +37,72 @@
         <form method="POST" action="/settings/crm" class="p-5 space-y-4">
             {{ request.state.csrf_form | safe }}
 
-            {{ text_input("crm_base_url", "CRM Base URL", value=settings.crm_base_url if settings is defined and settings.crm_base_url else '', placeholder="e.g. https://crm.dotmac.ng", help_text="The base URL of your DotMac CRM instance.") }}
+            {{ text_input("crm_base_url", "CRM Base URL", value=crm_config.base_url if crm_config is defined and crm_config.base_url else '', placeholder="e.g. https://crm.dotmac.ng", help_text="The base URL of your DotMac CRM instance.") }}
 
-            {{ text_input("crm_api_key", "CRM API Key", value=settings.crm_api_key if settings is defined and settings.crm_api_key else '', type="password", placeholder="Enter API key", help_text="Used to authenticate requests to the CRM API.") }}
+            {{ text_input("crm_api_key", "CRM API Key", value='', type="password", placeholder="Enter API key", help_text="Used to authenticate requests to the CRM API.") }}
 
             {{ submit_button(label="Save CRM Settings") }}
         </form>
     </div>
 
-    {# Channel API Keys #}
+    {# Meta App Credentials #}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
         <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Channel API Keys</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage API credentials for connected marketing channels.</p>
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Meta App Credentials</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Set the App ID and App Secret used for Facebook and Instagram OAuth.</p>
         </div>
-        <form method="POST" action="/settings/channels" class="p-5 space-y-4">
+        <form method="POST" action="/settings/meta" class="p-5 space-y-4">
             {{ request.state.csrf_form | safe }}
 
-            <div class="space-y-4">
-                {% set channel_fields = [
-                    {"name": "meta_app_id", "label": "Meta App ID"},
-                    {"name": "meta_app_secret", "label": "Meta App Secret"},
-                    {"name": "twitter_api_key", "label": "Twitter API Key"},
-                    {"name": "twitter_api_secret", "label": "Twitter API Secret"},
-                    {"name": "linkedin_client_id", "label": "LinkedIn Client ID"},
-                    {"name": "linkedin_client_secret", "label": "LinkedIn Client Secret"},
-                    {"name": "google_ads_client_id", "label": "Google Ads Client ID"},
-                    {"name": "google_analytics_property_id", "label": "Google Analytics Property ID"},
-                ] %}
-                {% for field in channel_fields %}
-                {{ text_input(
-                    field.name,
-                    field.label,
-                    value=channel_settings[field.name] if channel_settings is defined and field.name in channel_settings and channel_settings[field.name] else '',
-                    type='password' if 'secret' in field.name else 'text',
-                    placeholder='Enter ' ~ field.label | lower
-                ) }}
-                {% endfor %}
+            {{ text_input("meta_app_id", "Meta App ID", value=meta_config.app_id if meta_config is defined and meta_config.app_id else '', placeholder="Enter Meta App ID", help_text="This is the App ID from your Meta developer app.") }}
+
+            {{ text_input("meta_app_secret", "Meta App Secret", value='', type="password", placeholder=meta_config.has_secret and 'Saved; enter a new secret to replace it' or 'Enter Meta App Secret', help_text="Stored as a secret setting and used for Meta OAuth token exchange.") }}
+
+            {{ text_input("meta_graph_version", "Meta Graph Version", value=meta_config.graph_version if meta_config is defined and meta_config.graph_version else 'v19.0', placeholder="v19.0", help_text="Used for Graph API calls and OAuth token exchange.") }}
+
+            {{ text_input("meta_webhook_verify_token", "Meta Webhook Verify Token", value='', type="password", placeholder=meta_config.has_webhook_verify_token and 'Saved; enter a new token to replace it' or 'Enter webhook verify token', help_text="Used when Meta validates your webhook subscription.") }}
+
+            {{ text_input("meta_api_timeout_seconds", "Meta API Timeout Seconds", value=meta_config.api_timeout_seconds if meta_config is defined and meta_config.api_timeout_seconds else '30', type="number", placeholder="30", help_text="HTTP timeout used for Meta OAuth, discovery, and refresh calls.") }}
+
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+                <p class="text-sm font-medium text-slate-900 dark:text-white">Derived URLs</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Meta OAuth Redirect URI: <span class="font-mono text-slate-700 dark:text-slate-300">{{ meta_config.oauth_redirect_uri }}</span></p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Meta Webhook Callback URL: <span class="font-mono text-slate-700 dark:text-slate-300">{{ meta_config.webhook_callback_url }}</span></p>
             </div>
 
-            {{ submit_button(label="Save Channel Settings") }}
+            {{ submit_button(label="Save Meta Settings") }}
         </form>
+    </div>
+
+    {# Connected Channels #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Connected Channels</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage your marketing channel connections via OAuth.</p>
+        </div>
+        <div class="p-5">
+            {% if channels %}
+            <div class="space-y-3">
+                {% for channel in channels %}
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-900 dark:text-white">{{ channel.name if channel.name else '' }}</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ channel.provider | string | replace('_', ' ') | title if channel.provider else '' }}</p>
+                    </div>
+                    {% set status_val = channel.status | string if channel.status else 'disconnected' %}
+                    <span class="text-xs font-medium {{ 'text-green-600 dark:text-green-400' if status_val == 'connected' else 'text-slate-500 dark:text-slate-400' }}">
+                        {{ status_val | replace('_', ' ') | title }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">No channels configured.</p>
+            {% endif %}
+            <div class="mt-4">
+                <a href="/channels" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">Manage channels</a>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

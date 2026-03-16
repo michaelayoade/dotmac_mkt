@@ -1,6 +1,5 @@
 """Tests for audit middleware - read-triggers, skip-paths, and exception logging."""
 
-import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

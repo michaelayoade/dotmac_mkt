@@ -8,7 +8,7 @@
     {# Header #}
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Asset Library</h1>
-        <a href="/assets/new" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <a href="/assets/create" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
@@ -16,40 +16,35 @@
         </a>
     </div>
 
-    {# Filter bar #}
-    <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+    {# Filter bar — single form so HTMX sends all params together #}
+    <form class="flex flex-col sm:flex-row gap-3 items-start sm:items-center"
+          hx-get="/assets"
+          hx-target="#results-container"
+          hx-push-url="true">
         <div class="flex-1">
             <input type="text"
                    name="q"
-                   value="{{ q if q else '' }}"
+                   value="{{ search_query if search_query else '' }}"
                    placeholder="Search assets..."
-                   hx-get="/assets"
                    hx-trigger="input changed delay:300ms"
-                   hx-target="#results-container"
-                   hx-push-url="true"
                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" />
         </div>
         <select name="asset_type"
-                hx-get="/assets"
                 hx-trigger="change"
-                hx-target="#results-container"
-                hx-push-url="true"
                 class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
             <option value="">All Types</option>
-            <option value="image" {{ 'selected' if type_filter is defined and type_filter == 'image' else '' }}>Image</option>
-            <option value="video" {{ 'selected' if type_filter is defined and type_filter == 'video' else '' }}>Video</option>
-            <option value="document" {{ 'selected' if type_filter is defined and type_filter == 'document' else '' }}>Document</option>
-            <option value="template" {{ 'selected' if type_filter is defined and type_filter == 'template' else '' }}>Template</option>
+            <option value="image" {{ 'selected' if asset_type_filter is defined and asset_type_filter == 'image' else '' }}>Image</option>
+            <option value="video" {{ 'selected' if asset_type_filter is defined and asset_type_filter == 'video' else '' }}>Video</option>
+            <option value="document" {{ 'selected' if asset_type_filter is defined and asset_type_filter == 'document' else '' }}>Document</option>
+            <option value="template" {{ 'selected' if asset_type_filter is defined and asset_type_filter == 'template' else '' }}>Template</option>
+            <option value="brand_guide" {{ 'selected' if asset_type_filter is defined and asset_type_filter == 'brand_guide' else '' }}>Brand Guide</option>
         </select>
         <select name="campaign_id"
-                hx-get="/assets"
                 hx-trigger="change"
-                hx-target="#results-container"
-                hx-push-url="true"
                 class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
             <option value="">All Campaigns</option>
             {% for c in campaigns if campaigns is defined %}
-            <option value="{{ c.id }}" {{ 'selected' if campaign_filter is defined and campaign_filter == c.id | string else '' }}>{{ c.name if c.name else '' }}</option>
+            <option value="{{ c.id }}" {{ 'selected' if campaign_id_filter is defined and campaign_id_filter == c.id | string else '' }}>{{ c.name if c.name else '' }}</option>
             {% else %}
             {% endfor %}
         </select>
@@ -70,7 +65,7 @@
                 </svg>
             </button>
         </div>
-    </div>
+    </form>
 
     {# Results #}
     <div id="results-container">
@@ -81,6 +76,7 @@
                 'video': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
                 'document': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
                 'template': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                'brand_guide': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
             } %}
             {% for asset in assets %}
             <a href="/assets/{{ asset.id }}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden card-hover block">
@@ -104,7 +100,7 @@
                 </div>
             </a>
             {% else %}
-            {{ empty_state("No assets found", "/assets/new", "Upload Asset") }}
+            {{ empty_state("No assets found", "/assets/create", "Upload Asset") }}
             {% endfor %}
         </div>
 
@@ -139,7 +135,7 @@
                         {% else %}
                         <tr>
                             <td colspan="4">
-                                {{ empty_state("No assets found", "/assets/new", "Upload Asset") }}
+                                {{ empty_state("No assets found", "/assets/create", "Upload Asset") }}
                             </td>
                         </tr>
                         {% endfor %}
@@ -148,7 +144,11 @@
             </div>
         </div>
 
-        {{ pagination(page if page is defined else 1, total_pages if total_pages is defined else 1, "/assets") }}
+        {% set _filter_parts = [] %}
+        {% if search_query is defined and search_query %}{% set _ = _filter_parts.append("q=" ~ search_query) %}{% endif %}
+        {% if asset_type_filter is defined and asset_type_filter %}{% set _ = _filter_parts.append("asset_type=" ~ asset_type_filter) %}{% endif %}
+        {% if campaign_id_filter is defined and campaign_id_filter %}{% set _ = _filter_parts.append("campaign_id=" ~ campaign_id_filter) %}{% endif %}
+        {{ pagination(page if page is defined else 1, total_pages if total_pages is defined else 1, "/assets", _filter_parts | join("&")) }}
     </div>
 </div>
 {% endblock %}

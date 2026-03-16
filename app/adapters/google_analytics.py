@@ -24,7 +24,9 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.access_token}"}
 
-    async def connect(self, auth_code: str) -> dict:
+    async def connect(
+        self, auth_code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> dict:
         """Exchange Google OAuth auth code for tokens."""
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
@@ -34,7 +36,7 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                     "code": auth_code,
                     "client_id": settings.google_analytics_client_id,
                     "client_secret": settings.google_analytics_client_secret,
-                    "redirect_uri": "",  # must match app config
+                    "redirect_uri": redirect_uri,
                 },
             )
             resp.raise_for_status()
@@ -45,6 +47,28 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                 self.property_id,
             )
             return data
+
+    async def refresh_token(self, refresh_token_value: str) -> dict | None:
+        """Refresh an expired Google Analytics OAuth token."""
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    GOOGLE_OAUTH,
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token_value,
+                        "client_id": settings.google_analytics_client_id,
+                        "client_secret": settings.google_analytics_client_secret,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self.access_token = data.get("access_token", self.access_token)
+                logger.info("Google Analytics token refreshed for property %s", self.property_id)
+                return data
+        except httpx.HTTPError as e:
+            logger.warning("Google Analytics token refresh failed: %s", e)
+            return None
 
     async def disconnect(self) -> None:
         """Revoke the Google OAuth token (best-effort)."""

@@ -52,41 +52,133 @@ class DriveService:
             logger.warning("Google Drive not configured, skipping sync")
             return {"created": 0, "updated": 0, "missing": 0}
 
-        # Import here to avoid import errors when google libs not available
         try:
-            from google.oauth2.credentials import Credentials  # noqa: F401
-            from googleapiclient.discovery import build  # noqa: F401
+            from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
         except ImportError:
             logger.error("google-api-python-client not installed")
             return {"created": 0, "updated": 0, "missing": 0}
 
-        # TODO: Build credentials from stored OAuth tokens
-        # For now, this is a stub that will be completed when Drive OAuth is wired up
-        logger.info("Drive sync started for folder %s", settings.google_drive_folder_id)
+        # Build credentials from stored OAuth tokens
+        from app.services.credential_service import CredentialService
 
+        cred_svc = CredentialService()
+        token_data = self._get_drive_tokens(cred_svc)
+        if not token_data:
+            logger.warning("No Drive OAuth tokens found, skipping sync")
+            return {"created": 0, "updated": 0, "missing": 0}
+
+        creds = Credentials(
+            token=token_data.get("access_token", ""),
+            refresh_token=token_data.get("refresh_token"),
+            token_uri="https://oauth2.googleapis.com/token",  # noqa: S106
+            client_id=settings.google_drive_client_id,
+            client_secret=settings.google_drive_client_secret,
+        )
+
+        service = build("drive", "v3", credentials=creds)
+
+        logger.info("Drive sync started for folder %s", settings.google_drive_folder_id)
         counts = {"created": 0, "updated": 0, "missing": 0}
 
-        # Mark missing assets that are no longer accessible
-        self._verify_existing_assets(counts)
+        # List files in the configured folder
+        drive_file_ids: set[str] = set()
+        page_token = None
+        while True:
+            resp = (
+                service.files()
+                .list(
+                    q=f"'{settings.google_drive_folder_id}' in parents and trashed = false",
+                    fields="nextPageToken, files(id, name, mimeType, size, webViewLink, thumbnailLink)",
+                    pageSize=100,
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+
+            for f in resp.get("files", []):
+                drive_file_ids.add(f["id"])
+                self._upsert_drive_file(f, counts)
+
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+
+        # Mark assets whose drive_file_id is no longer in the folder
+        self._mark_removed_assets(drive_file_ids, counts)
 
         return counts
 
-    def _verify_existing_assets(self, counts: dict) -> None:
-        """Check existing assets still exist in Drive. Mark missing ones."""
+    def _get_drive_tokens(self, cred_svc) -> dict | None:
+        """Retrieve stored Drive OAuth tokens from any Google channel."""
+        from app.models.channel import Channel, ChannelProvider
+
+        for provider in (ChannelProvider.google_ads, ChannelProvider.google_analytics):
+            stmt = select(Channel).where(
+                Channel.provider == provider,
+                Channel.credentials_encrypted.isnot(None),
+            )
+            channel = self.db.scalar(stmt)
+            if channel and channel.credentials_encrypted:
+                try:
+                    return cred_svc.decrypt(channel.credentials_encrypted)
+                except (ValueError, TypeError):
+                    continue
+        return None
+
+    def _upsert_drive_file(self, file_data: dict, counts: dict) -> None:
+        """Create or update an asset from a Drive file listing entry."""
+        file_id = file_data["id"]
+        name = file_data.get("name", "Untitled")
+        mime_type = file_data.get("mimeType", "")
+        size = int(file_data.get("size", 0))
+        web_view_link = file_data.get("webViewLink", "")
+        thumbnail_link = file_data.get("thumbnailLink")
+
+        # Check if asset already exists
+        stmt = select(Asset).where(Asset.drive_file_id == file_id)
+        existing = self.db.scalar(stmt)
+
+        if existing:
+            # Update metadata
+            existing.name = name
+            existing.mime_type = mime_type
+            if size:
+                existing.file_size = size
+            if web_view_link:
+                existing.drive_url = web_view_link
+            if thumbnail_link:
+                existing.thumbnail_url = thumbnail_link
+            existing.drive_status = DriveStatus.active
+            existing.last_verified_at = datetime.now(UTC)
+            self.db.flush()
+            counts["updated"] += 1
+        else:
+            self.create_asset_from_drive(
+                file_id=file_id,
+                name=name,
+                mime_type=mime_type,
+                size=size,
+                web_view_link=web_view_link,
+                thumbnail_link=thumbnail_link,
+            )
+            counts["created"] += 1
+
+    def _mark_removed_assets(self, active_file_ids: set[str], counts: dict) -> None:
+        """Mark assets that are no longer in the Drive folder as missing."""
         stmt = select(Asset).where(
             Asset.drive_file_id.isnot(None),
             Asset.drive_status == DriveStatus.active,
         )
         assets = list(self.db.scalars(stmt).all())
-
         for asset in assets:
-            # TODO: Check each file via Drive API
-            # For now, just update last_verified_at
-            asset.last_verified_at = datetime.now(UTC)
-
-        if assets:
+            if asset.drive_file_id not in active_file_ids:
+                asset.drive_status = DriveStatus.missing
+                asset.last_verified_at = datetime.now(UTC)
+                counts["missing"] += 1
+                logger.warning("Asset no longer in Drive folder: %s (%s)", asset.name, asset.drive_file_id)
+        if counts["missing"]:
             self.db.flush()
-            logger.info("Verified %d Drive assets", len(assets))
 
     def create_asset_from_drive(
         self,

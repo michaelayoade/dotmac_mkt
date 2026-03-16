@@ -130,16 +130,18 @@
 </div>
 {% endmacro %}
 
-{% macro pagination(page, total_pages, base_url) %}
+{% macro pagination(page, total_pages, base_url, extra_params="") %}
 {% if total_pages > 1 %}
+{% set sep = "&" if "?" in base_url else "?" %}
+{% set qs = extra_params ~ "&" if extra_params else "" %}
 <div class="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-700">
     <p class="text-sm text-slate-500 dark:text-slate-400">Page {{ page }} of {{ total_pages }}</p>
     <div class="flex items-center gap-1">
         {% if page > 1 %}
-        <a href="{{ base_url }}?page={{ page - 1 }}" class="px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Previous</a>
+        <a href="{{ base_url }}{{ sep }}{{ qs }}page={{ page - 1 }}" class="px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Previous</a>
         {% endif %}
         {% if page < total_pages %}
-        <a href="{{ base_url }}?page={{ page + 1 }}" class="px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Next</a>
+        <a href="{{ base_url }}{{ sep }}{{ qs }}page={{ page + 1 }}" class="px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Next</a>
         {% endif %}
     </div>
 </div>
@@ -153,6 +155,19 @@
     'archived': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     'pending': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     'deleted': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    'draft': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+    'paused': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    'completed': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    'todo': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    'in_progress': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    'done': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    'connected': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    'disconnected': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+    'error': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    'expired': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    'scheduled': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    'published': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    'failed': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 } %}
 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ color_map.get(status | lower if status else '', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
     {{ status | replace('_', ' ') | title if status else 'Unknown' }}

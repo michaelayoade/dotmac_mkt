@@ -27,13 +27,15 @@ def _env_int(name: str) -> int | None:
 
 
 def _get_setting_value(db, domain: SettingDomain, key: str) -> str | None:
-    setting = (
-        db.query(DomainSetting)
-        .filter(DomainSetting.domain == domain)
-        .filter(DomainSetting.key == key)
-        .filter(DomainSetting.is_active.is_(True))
-        .first()
+    from sqlalchemy import select
+
+    stmt = (
+        select(DomainSetting)
+        .where(DomainSetting.domain == domain)
+        .where(DomainSetting.key == key)
+        .where(DomainSetting.is_active.is_(True))
     )
+    setting = db.scalar(stmt)
     if not setting:
         return None
     if setting.value_text:
@@ -123,9 +125,10 @@ def build_beat_schedule() -> dict:
     schedule: dict[str, dict] = {}
     session = SessionLocal()
     try:
-        tasks = (
-            session.query(ScheduledTask).filter(ScheduledTask.enabled.is_(True)).all()
-        )
+        from sqlalchemy import select
+
+        stmt = select(ScheduledTask).where(ScheduledTask.enabled.is_(True))
+        tasks = list(session.scalars(stmt).all())
         for task in tasks:
             if task.schedule_type != ScheduleType.interval:
                 continue

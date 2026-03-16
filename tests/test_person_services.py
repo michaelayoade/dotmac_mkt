@@ -163,8 +163,8 @@ def test_delete_person(db_session):
     person_service.people.delete(db_session, str(person_id))
 
     # Verify person is deleted
-    from fastapi import HTTPException
     import pytest
+    from fastapi import HTTPException
 
     with pytest.raises(HTTPException) as exc_info:
         person_service.people.get(db_session, str(person_id))

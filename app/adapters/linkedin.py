@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 
@@ -28,7 +28,9 @@ class LinkedInAdapter(ChannelAdapter):
             "X-Restli-Protocol-Version": "2.0.0",
         }
 
-    async def connect(self, auth_code: str) -> dict:
+    async def connect(
+        self, auth_code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> dict:
         """Exchange auth code for an access token."""
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
@@ -38,7 +40,7 @@ class LinkedInAdapter(ChannelAdapter):
                     "code": auth_code,
                     "client_id": settings.linkedin_client_id,
                     "client_secret": settings.linkedin_client_secret,
-                    "redirect_uri": "",  # must match app config
+                    "redirect_uri": redirect_uri,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
@@ -49,6 +51,29 @@ class LinkedInAdapter(ChannelAdapter):
                 "LinkedIn OAuth token exchanged for org %s", self.organization_id
             )
             return data
+
+    async def refresh_token(self, refresh_token_value: str) -> dict | None:
+        """Refresh an expired LinkedIn OAuth token."""
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{LINKEDIN_OAUTH}/accessToken",
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token_value,
+                        "client_id": settings.linkedin_client_id,
+                        "client_secret": settings.linkedin_client_secret,
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self.access_token = data.get("access_token", self.access_token)
+                logger.info("LinkedIn token refreshed for org %s", self.organization_id)
+                return data
+        except httpx.HTTPError as e:
+            logger.warning("LinkedIn token refresh failed: %s", e)
+            return None
 
     async def disconnect(self) -> None:
         """LinkedIn does not support programmatic token revocation.
@@ -164,7 +189,7 @@ class LinkedInAdapter(ChannelAdapter):
             published_at = None
             if created_ms:
                 with contextlib.suppress(ValueError, TypeError, OSError):
-                    published_at = datetime.fromtimestamp(created_ms / 1000)
+                    published_at = datetime.fromtimestamp(created_ms / 1000, tz=UTC)
 
             if since and published_at and published_at < since:
                 continue

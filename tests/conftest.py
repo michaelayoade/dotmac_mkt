@@ -1,16 +1,23 @@
 import os
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime, timedelta
 from types import ModuleType
 
 import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
 from sqlalchemy import DateTime, create_engine
-from sqlalchemy.orm import Mapped, mapped_column, sessionmaker, DeclarativeBase
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+
+# Make JSONB compile as JSON on SQLite so create_all works
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(type_, compiler, **kw):
+    return "JSON"
 
 
 # Create a test engine BEFORE any app imports
@@ -35,12 +42,12 @@ class TimestampMixin:
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 
@@ -71,6 +78,8 @@ class MockSettings:
     brand_tagline = "FastAPI starter"
     brand_logo_url = None
     cors_origins = ""
+    canonical_host = None
+    canonical_scheme = "https"
     storage_backend = "local"
     storage_local_dir = "/tmp/test_uploads"
     storage_url_prefix = "/static/uploads"
@@ -84,6 +93,27 @@ class MockSettings:
         "image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv"
     )
     metrics_token = None
+    encryption_key = "test-encryption-key-32-chars-long"
+    meta_app_id = ""
+    meta_app_secret = ""
+    twitter_client_id = ""
+    twitter_client_secret = ""
+    linkedin_client_id = ""
+    linkedin_client_secret = ""
+    google_ads_client_id = ""
+    google_ads_client_secret = ""
+    google_ads_developer_token = ""
+    google_analytics_client_id = ""
+    google_analytics_client_secret = ""
+    google_drive_client_id = ""
+    google_drive_client_secret = ""
+    google_drive_folder_id = ""
+    crm_base_url = ""
+    crm_api_key = ""
+    branding_upload_dir = "static/branding"
+    branding_max_size_bytes = 5242880
+    branding_allowed_types = "image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+    branding_url_prefix = "/static/branding"
 
 
 mock_config_module.settings = MockSettings()
@@ -101,41 +131,32 @@ os.environ["TOTP_ENCRYPTION_KEY"] = "QLUJktsTSfZEbST4R-37XmQ0tCkiVCBXZN2Zt053w8g
 os.environ["TOTP_ISSUER"] = "StarterTemplate"
 
 # Now import the models - they'll use our mocked db module
-from app.models.person import Person
-from app.models.auth import UserCredential, Session as AuthSession, SessionStatus
-from app.models.rbac import Role, Permission, RolePermission, PersonRole
-from app.models.audit import AuditEvent, AuditActorType
-from app.models.domain_settings import DomainSetting, SettingDomain
-from app.models.scheduler import ScheduledTask, ScheduleType
-from app.models.file_upload import FileUpload, FileUploadStatus
-from app.models.notification import Notification, NotificationType
+from app.models.asset import Asset, AssetType
+from app.models.audit import AuditActorType, AuditEvent
+from app.models.auth import Session as AuthSession
+from app.models.auth import SessionStatus, UserCredential
 from app.models.billing import (
-    Product,
-    Price,
-    PriceType,
     BillingScheme,
-    RecurringInterval,
-    Customer,
-    Subscription,
-    SubscriptionStatus,
-    SubscriptionItem,
-    Invoice,
-    InvoiceStatus,
-    InvoiceItem,
-    PaymentMethod,
-    PaymentMethodType,
-    PaymentIntent,
-    PaymentIntentStatus,
-    UsageRecord,
-    UsageAction,
     Coupon,
     CouponDuration,
-    Discount,
-    Entitlement,
-    EntitlementValueType,
-    WebhookEvent,
-    WebhookEventStatus,
+    Customer,
+    Price,
+    PriceType,
+    Product,
+    RecurringInterval,
+    Subscription,
+    SubscriptionItem,
+    SubscriptionStatus,
 )
+from app.models.campaign import (
+    Campaign,
+    CampaignStatus,
+)
+from app.models.channel import Channel, ChannelProvider, ChannelStatus
+from app.models.domain_settings import DomainSetting, SettingDomain
+from app.models.person import Person
+from app.models.rbac import Permission, PersonRole, Role
+from app.models.scheduler import ScheduledTask, ScheduleType
 
 # Create all tables
 TestBase.metadata.create_all(_test_engine)
@@ -194,8 +215,8 @@ def auth_env():
 @pytest.fixture()
 def client(db_session):
     """Create a test client with database dependency override."""
-    from app.main import app
     from app.api.deps import get_db as api_get_db
+    from app.main import app
     from app.services.auth_dependencies import _get_db as auth_deps_get_db
 
     def override_get_db():
@@ -217,7 +238,7 @@ def _create_access_token(
     """Create a JWT access token for testing."""
     secret = os.getenv("JWT_SECRET", "test-secret")
     algorithm = os.getenv("JWT_ALGORITHM", "HS256")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + timedelta(minutes=15)
     payload = {
         "sub": person_id,
@@ -240,7 +261,7 @@ def auth_session(db_session, person):
         status=SessionStatus.active,
         ip_address="127.0.0.1",
         user_agent="pytest",
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        expires_at=datetime.now(UTC) + timedelta(days=30),
     )
     db_session.add(session)
     db_session.commit()
@@ -302,7 +323,7 @@ def admin_session(db_session, admin_person):
         status=SessionStatus.active,
         ip_address="127.0.0.1",
         user_agent="pytest",
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        expires_at=datetime.now(UTC) + timedelta(days=30),
     )
     db_session.add(session)
     db_session.commit()
@@ -503,3 +524,49 @@ def billing_coupon(db_session):
     db_session.commit()
     db_session.refresh(coupon)
     return coupon
+
+
+# ============ Marketing Fixtures ============
+
+
+@pytest.fixture()
+def campaign(db_session, person):
+    c = Campaign(
+        name="Test Campaign",
+        status=CampaignStatus.draft,
+        created_by=person.id,
+    )
+    db_session.add(c)
+    db_session.commit()
+    db_session.refresh(c)
+    return c
+
+
+@pytest.fixture()
+def channel(db_session):
+    ch = Channel(
+        name="Test Instagram",
+        provider=ChannelProvider.meta_instagram,
+        status=ChannelStatus.connected,
+        external_account_id="123456789",
+    )
+    db_session.add(ch)
+    db_session.commit()
+    db_session.refresh(ch)
+    return ch
+
+
+@pytest.fixture()
+def asset(db_session):
+    a = Asset(
+        name="hero-banner.png",
+        asset_type=AssetType.image,
+        drive_file_id="abc123",
+        drive_url="https://drive.google.com/file/d/abc123",
+        mime_type="image/png",
+        file_size=1024000,
+    )
+    db_session.add(a)
+    db_session.commit()
+    db_session.refresh(a)
+    return a

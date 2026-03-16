@@ -89,7 +89,6 @@ class TestRateLimitMiddleware:
 
     def test_429_response_format(self) -> None:
         """429 responses have standard error format."""
-        from app.middleware.rate_limit import RateLimitMiddleware
         from starlette.responses import JSONResponse
 
         # Verify the response structure matches our error envelope

@@ -1,13 +1,12 @@
 """Tests for WebSocket connection manager."""
 
-import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
+from starlette.websockets import WebSocketState
 
 from app.services.websocket_manager import ConnectionManager
-from starlette.websockets import WebSocketState
 
 
 @pytest.fixture()

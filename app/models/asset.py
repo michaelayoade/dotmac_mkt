@@ -64,6 +64,17 @@ class Asset(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("people.id"), nullable=True
     )
 
+    @property
+    def file_size_display(self) -> str:
+        """Human-readable file size."""
+        if not self.file_size:
+            return ""
+        if self.file_size < 1024:
+            return f"{self.file_size} B"
+        if self.file_size < 1024 * 1024:
+            return f"{self.file_size / 1024:.1f} KB"
+        return f"{self.file_size / (1024 * 1024):.1f} MB"
+
     campaigns = relationship(
         "Campaign",
         secondary="campaign_assets",

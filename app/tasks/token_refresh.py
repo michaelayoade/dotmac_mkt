@@ -1,13 +1,74 @@
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+from app.adapters.registry import get_adapter
 from app.celery_app import celery_app
 from app.db import SessionLocal
-from app.models.channel import Channel, ChannelStatus
+from app.models.channel import ChannelStatus
+from app.services.channel_integration_settings import get_meta_oauth_config
 from app.services.channel_service import ChannelService
 from app.services.credential_service import CredentialService
 
 logger = logging.getLogger(__name__)
+
+# Map providers to the adapter kwargs key for account/org/customer/property ID
+_PROVIDER_KEY_MAP: dict[str, str] = {
+    "meta_instagram": "account_id",
+    "meta_facebook": "account_id",
+    "twitter": "account_id",
+    "linkedin": "organization_id",
+    "google_ads": "customer_id",
+    "google_analytics": "property_id",
+}
+
+
+async def _refresh_channel_token(channel, creds, cred_svc, channel_svc, db) -> bool:
+    """Attempt to refresh a single channel's token. Returns True on success."""
+    refresh_token_value = creds.get("refresh_token") or creds.get("access_token")
+    if not refresh_token_value:
+        logger.warning("No refresh token for %s, skipping", channel.name)
+        return False
+
+    provider = channel.provider.value
+    extra_key = _PROVIDER_KEY_MAP.get(provider, "account_id")
+    adapter_kwargs = {
+        "access_token": creds.get("access_token", ""),
+        extra_key: channel.external_account_id or "",
+    }
+    if channel.provider.value in {"meta_instagram", "meta_facebook"}:
+        meta_config = get_meta_oauth_config(db)
+        adapter_kwargs["client_id"] = meta_config.app_id
+        adapter_kwargs["client_secret"] = meta_config.app_secret
+        adapter_kwargs["graph_version"] = meta_config.graph_version
+        adapter_kwargs["timeout_seconds"] = meta_config.api_timeout_seconds
+
+    try:
+        adapter = get_adapter(channel.provider, **adapter_kwargs)
+        new_token_data = await adapter.refresh_token(refresh_token_value)
+    except (ValueError, RuntimeError) as e:
+        logger.error("Adapter error refreshing %s: %s", channel.name, e)
+        return False
+
+    if not new_token_data:
+        logger.warning("Token refresh returned no data for %s", channel.name)
+        channel_svc.update_status(channel.id, ChannelStatus.error)
+        return False
+
+    # Merge new token data into existing creds (preserves refresh_token if not returned)
+    merged = {**creds, **new_token_data}
+
+    # Set expires_at if expires_in is present
+    expires_in = new_token_data.get("expires_in")
+    if expires_in:
+        expires_at = datetime.now(UTC) + timedelta(seconds=int(expires_in))
+        merged["expires_at"] = expires_at.isoformat()
+
+    encrypted = cred_svc.encrypt(merged)
+    channel_svc.store_credentials(channel.id, encrypted)
+    channel_svc.update_last_synced(channel.id)
+    logger.info("Token refreshed for %s", channel.name)
+    return True
 
 
 @celery_app.task(name="token_refresh", ignore_result=True)
@@ -46,14 +107,11 @@ def token_refresh():
                 continue
 
             if expires_at < threshold:
-                # TODO: Call provider-specific token refresh endpoint
-                # For now, log that refresh is needed
-                logger.info(
-                    "Token for %s expires at %s — refresh needed",
-                    channel.name,
-                    expires_at_str,
+                success = asyncio.run(
+                    _refresh_channel_token(channel, creds, cred_svc, channel_svc, db)
                 )
-                refreshed += 1
+                if success:
+                    refreshed += 1
 
         db.commit()
         if refreshed:

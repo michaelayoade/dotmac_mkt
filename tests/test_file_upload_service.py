@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models.file_upload import FileUpload, FileUploadStatus
+from app.models.file_upload import FileUploadStatus
 from app.services.file_upload import FileUploadService
 from app.services.storage import LocalStorage
 

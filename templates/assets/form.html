@@ -21,6 +21,7 @@
                 {"value": "video", "label": "Video"},
                 {"value": "document", "label": "Document"},
                 {"value": "template", "label": "Template"},
+                {"value": "brand_guide", "label": "Brand Guide"},
             ] %}
             {{ select_field("asset_type", "Asset Type", type_options, selected=asset.asset_type | string if asset is defined and asset.asset_type else '', required=true) }}
 

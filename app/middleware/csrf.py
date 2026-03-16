@@ -68,6 +68,17 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         header_token = request.headers.get("X-CSRF-Token", "")
         if header_token:
             return header_token
+        # Read body bytes and cache them so downstream handlers can re-read
+        body = await request.body()
+        # Parse form data from the cached body
+        from urllib.parse import parse_qs
+
+        ctype = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        if ctype == "application/x-www-form-urlencoded":
+            parsed = parse_qs(body.decode("utf-8"), keep_blank_values=True)
+            token_vals = parsed.get("csrf_token", [])
+            return token_vals[0] if token_vals else ""
+        # For multipart, fall back to request.form() (Starlette caches after body())
         form = await request.form()
         token = form.get("csrf_token")
         return str(token) if token else ""
@@ -75,6 +86,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: object) -> Response:
         csrf_token, should_set_cookie = self._ensure_token(request)
         request.state.csrf_token = csrf_token
+        request.state.csrf_form = (
+            f'<input type="hidden" name="csrf_token" value="{csrf_token}" />'
+        )
 
         if self._requires_csrf(request):
             submitted_token = await self._submitted_token(request)

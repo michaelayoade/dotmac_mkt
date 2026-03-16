@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.channel import Channel, ChannelStatus
@@ -40,13 +40,26 @@ class ChannelService:
         logger.info("Updated Channel %s status to %s", record.id, status.value)
         return record
 
-    def store_credentials(self, id: UUID, encrypted: bytes) -> None:
+    def store_credentials(self, id: UUID, encrypted: bytes | None) -> None:
         record = self.db.get(Channel, id)
         if record is None:
             raise ValueError(f"Channel {id} not found")
         record.credentials_encrypted = encrypted
         self.db.flush()
         logger.info("Stored credentials for Channel: %s", record.id)
+
+    def update_external_account_id(self, id: UUID, external_account_id: str | None) -> Channel:
+        record = self.db.get(Channel, id)
+        if record is None:
+            raise ValueError(f"Channel {id} not found")
+        record.external_account_id = external_account_id
+        self.db.flush()
+        logger.info(
+            "Updated external_account_id for Channel %s to %s",
+            record.id,
+            external_account_id,
+        )
+        return record
 
     def get_credentials(self, id: UUID) -> bytes | None:
         record = self.db.get(Channel, id)
@@ -61,3 +74,24 @@ class ChannelService:
         record.last_synced_at = datetime.now(UTC)
         self.db.flush()
         logger.info("Updated last_synced_at for Channel: %s", record.id)
+
+    def delete(self, id: UUID) -> None:
+        """Delete a channel. Raises ValueError if posts reference it."""
+        from app.models.post import Post
+
+        record = self.db.get(Channel, id)
+        if record is None:
+            raise ValueError(f"Channel {id} not found")
+
+        post_count = self.db.scalar(
+            select(func.count(Post.id)).where(Post.channel_id == id)
+        ) or 0
+        if post_count > 0:
+            raise ValueError(
+                f"Cannot delete channel {record.name}: {post_count} posts reference it. "
+                "Disconnect the channel instead."
+            )
+
+        self.db.delete(record)
+        self.db.flush()
+        logger.info("Deleted Channel: %s", record.id)

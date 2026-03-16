@@ -18,15 +18,13 @@ from app.schemas.asset import AssetCreate, AssetUpdate
 from app.services.asset_service import AssetService
 from app.services.campaign_service import CampaignService
 from app.templates import templates
+from app.web.deps import require_web_auth
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assets", tags=["web-assets"])
 
 PAGE_SIZE = 25
-
-# TODO: get from auth context
-PLACEHOLDER_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
 
 
 @router.get("", response_class=HTMLResponse)
@@ -37,10 +35,9 @@ def list_assets(
     campaign_id: UUID | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
 ) -> HTMLResponse:
     """Asset library with grid/list view, filters, and search."""
-    AssetService(db)
-
     # Resolve asset_type filter
     type_filter: AssetType | None = None
     if asset_type:
@@ -51,10 +48,10 @@ def list_assets(
     # Search by name requires direct query
     from sqlalchemy import func, select
 
-    from app.models.asset import Asset
+    from app.models.asset import Asset, DriveStatus
     from app.models.campaign import campaign_assets
 
-    stmt = select(Asset)
+    stmt = select(Asset).where(Asset.drive_status != DriveStatus.missing)
     if type_filter is not None:
         stmt = stmt.where(Asset.asset_type == type_filter)
     if campaign_id is not None:
@@ -74,10 +71,15 @@ def list_assets(
     offset = (page - 1) * PAGE_SIZE
     items = list(db.scalars(stmt.offset(offset).limit(PAGE_SIZE)).all())
 
+    # Campaigns for filter dropdown
+    campaign_svc = CampaignService(db)
+    campaigns = campaign_svc.list_all(limit=100)
+
     ctx = {
         "request": request,
         "title": "Assets",
         "assets": items,
+        "campaigns": campaigns,
         "page": page,
         "total_pages": total_pages,
         "total": total,
@@ -93,6 +95,7 @@ def list_assets(
 def create_asset_form(
     request: Request,
     db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
 ) -> HTMLResponse:
     """Render asset upload/create form."""
     campaign_svc = CampaignService(db)
@@ -112,6 +115,7 @@ def create_asset_form(
 async def create_asset_submit(
     request: Request,
     db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
 ) -> RedirectResponse:
     """Handle asset creation form submission."""
     form = await request.form()
@@ -125,8 +129,7 @@ async def create_asset_submit(
     )
 
     asset_svc = AssetService(db)
-    # TODO: get from auth context
-    record = asset_svc.create(data, uploaded_by=PLACEHOLDER_USER_ID)
+    record = asset_svc.create(data, uploaded_by=UUID(auth["person_id"]))
     db.commit()
     logger.info("Asset created via web: %s", record.id)
     return RedirectResponse(url=f"/assets/{record.id}", status_code=302)
@@ -137,6 +140,7 @@ def asset_detail(
     request: Request,
     id: UUID,
     db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
 ) -> Response:
     """Asset detail page with preview, metadata, and linked campaigns."""
     asset_svc = AssetService(db)
@@ -158,12 +162,15 @@ def edit_asset_form(
     request: Request,
     id: UUID,
     db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
 ) -> Response:
     """Render asset edit form."""
     asset_svc = AssetService(db)
     record = asset_svc.get_by_id(id)
     if record is None:
         return RedirectResponse(url="/assets?error=Asset+not+found", status_code=302)
+    if record.uploaded_by and record.uploaded_by != UUID(auth["person_id"]):
+        return RedirectResponse(url="/assets?error=Permission+denied", status_code=302)
 
     ctx = {
         "request": request,
@@ -180,8 +187,16 @@ async def edit_asset_submit(
     request: Request,
     id: UUID,
     db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
 ) -> RedirectResponse:
     """Handle asset edit form submission."""
+    asset_svc_check = AssetService(db)
+    record_check = asset_svc_check.get_by_id(id)
+    if record_check is None:
+        return RedirectResponse(url="/assets?error=Asset+not+found", status_code=302)
+    if record_check.uploaded_by and record_check.uploaded_by != UUID(auth["person_id"]):
+        return RedirectResponse(url="/assets?error=Permission+denied", status_code=302)
+
     form = await request.form()
     data = AssetUpdate(
         name=str(form.get("name", "")) or None,
@@ -200,3 +215,25 @@ async def edit_asset_submit(
         return RedirectResponse(url="/assets?error=Asset+not+found", status_code=302)
 
     return RedirectResponse(url=f"/assets/{id}", status_code=302)
+
+
+@router.post("/{id}/delete", response_model=None)
+def delete_asset(
+    id: UUID,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> RedirectResponse:
+    """Delete an asset."""
+    asset_svc = AssetService(db)
+    record = asset_svc.get_by_id(id)
+    if record is None:
+        return RedirectResponse(url="/assets?error=Asset+not+found", status_code=302)
+    if record.uploaded_by and record.uploaded_by != UUID(auth["person_id"]):
+        return RedirectResponse(url="/assets?error=Permission+denied", status_code=302)
+    try:
+        asset_svc.delete(id)
+        db.commit()
+        logger.info("Asset deleted via web: %s", id)
+    except ValueError:
+        return RedirectResponse(url="/assets?error=Asset+not+found", status_code=302)
+    return RedirectResponse(url="/assets?success=Asset+deleted", status_code=302)

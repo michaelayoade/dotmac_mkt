@@ -18,6 +18,13 @@ class MetricType(str, enum.Enum):
     engagement = "engagement"
     spend = "spend"
     conversions = "conversions"
+    likes = "likes"
+    shares = "shares"
+    retweets = "retweets"
+    sessions = "sessions"
+    pageviews = "pageviews"
+    users = "users"
+    bounce_rate = "bounce_rate"
 
 
 class ChannelMetric(TimestampMixin, Base):

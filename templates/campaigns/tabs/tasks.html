@@ -1,0 +1,20 @@
+{% from "admin/components/table_macros.html" import status_badge, empty_state %}
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for task in tasks %}
+        <div class="px-5 py-3 flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-slate-900 dark:text-white">{{ task.title if task.title else '' }}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {{ (task.assignee.first_name ~ ' ' ~ task.assignee.last_name) if task.assignee else 'Unassigned' }}
+                    {% if task.due_date %} &middot; Due {{ task.due_date.strftime('%b %d') }}{% endif %}
+                </p>
+            </div>
+            {{ status_badge(task.status | string if task.status else '') }}
+        </div>
+        {% else %}
+        {{ empty_state("No tasks for this campaign") }}
+        {% endfor %}
+    </div>
+</div>

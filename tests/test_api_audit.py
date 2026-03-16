@@ -1,7 +1,5 @@
 import uuid
 
-import pytest
-
 from app.models.audit import AuditActorType, AuditEvent
 
 

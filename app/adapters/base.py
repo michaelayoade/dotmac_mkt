@@ -28,8 +28,14 @@ class ChannelAdapter(ABC):
     """Base interface for all channel integrations."""
 
     @abstractmethod
-    async def connect(self, auth_code: str) -> dict:
+    async def connect(
+        self, auth_code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> dict:
         """Complete OAuth flow, return token dict."""
+
+    async def refresh_token(self, refresh_token_value: str) -> dict | None:
+        """Refresh an expired access token. Returns new token dict or None."""
+        return None
 
     @abstractmethod
     async def disconnect(self) -> None:

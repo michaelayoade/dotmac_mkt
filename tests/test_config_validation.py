@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 
 def _real_validate_settings(s: object) -> list[str]:
     """Re-implement validate_settings logic for testing.

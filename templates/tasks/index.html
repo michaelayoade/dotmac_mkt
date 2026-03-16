@@ -9,6 +9,16 @@
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Tasks</h1>
         <div class="flex items-center gap-3">
+            <a href="/tasks?assignee_id={{ current_person_id if current_person_id is defined else '' }}"
+               class="px-3 py-2 rounded-lg border text-sm font-medium {{ 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-900/30 dark:border-primary-700 dark:text-primary-300' if assignee_id_filter is defined and assignee_id_filter else 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
+                My Tasks
+            </a>
+            {% if assignee_id_filter is defined and assignee_id_filter %}
+            <a href="/tasks"
+               class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm hover:bg-slate-50 dark:hover:bg-slate-700">
+                All Tasks
+            </a>
+            {% endif %}
             <select name="campaign_id"
                     hx-get="/tasks"
                     hx-trigger="change"
@@ -17,7 +27,7 @@
                     class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                 <option value="">All Campaigns</option>
                 {% for c in campaigns if campaigns is defined %}
-                <option value="{{ c.id }}" {{ 'selected' if campaign_filter is defined and campaign_filter == c.id | string else '' }}>{{ c.name if c.name else '' }}</option>
+                <option value="{{ c.id }}" {{ 'selected' if campaign_id_filter is defined and campaign_id_filter == c.id | string else '' }}>{{ c.name if c.name else '' }}</option>
                 {% else %}
                 {% endfor %}
             </select>
@@ -34,7 +44,7 @@
     {# Inline add form #}
     <div x-show="showAddForm" x-cloak x-transition
          class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-        <form method="POST" action="/tasks" hx-post="/tasks" hx-target="#kanban-board" hx-swap="outerHTML" class="space-y-4">
+        <form method="POST" action="/tasks/create" class="space-y-4">
             {{ request.state.csrf_form | safe }}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -64,7 +74,7 @@
                             class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
                         <option value="">Unassigned</option>
                         {% for user in team_members if team_members is defined %}
-                        <option value="{{ user.id }}">{{ user.name if user.name else '' }}</option>
+                        <option value="{{ user.id }}">{{ user.first_name if user.first_name else '' }} {{ user.last_name if user.last_name else '' }}</option>
                         {% else %}
                         {% endfor %}
                     </select>
@@ -82,31 +92,6 @@
     </div>
 
     {# Kanban board #}
-    <div id="kanban-board" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {% set columns = [
-            {"key": "todo", "label": "Todo", "color": "border-slate-300 dark:border-slate-600"},
-            {"key": "in_progress", "label": "In Progress", "color": "border-blue-400 dark:border-blue-500"},
-            {"key": "done", "label": "Done", "color": "border-green-400 dark:border-green-500"},
-        ] %}
-        {% for col in columns %}
-        <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl border {{ col.color }} border-t-4 p-3">
-            <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3 px-1">
-                {{ col.label }}
-                <span class="ml-1 text-xs text-slate-400 dark:text-slate-500">
-                    ({{ tasks_by_status[col.key] | length if tasks_by_status is defined and col.key in tasks_by_status else 0 }})
-                </span>
-            </h3>
-            <div class="space-y-2">
-                {% for task in tasks_by_status[col.key] if tasks_by_status is defined and col.key in tasks_by_status %}
-                {% include "tasks/partials/task_card.html" %}
-                {% else %}
-                <div class="p-4 text-center">
-                    <p class="text-xs text-slate-400 dark:text-slate-500">No tasks</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+    {% include "tasks/partials/kanban_board.html" %}
 </div>
 {% endblock %}

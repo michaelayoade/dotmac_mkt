@@ -22,7 +22,17 @@ class DbScheduler(Scheduler):
         now = time.monotonic()
         if now - self._last_refresh_at < max(refresh_seconds, 1):
             return
-        schedule = build_beat_schedule()
-        if schedule != self.schedule:
-            self.schedule = schedule
+        raw = build_beat_schedule()
+        entries = {}
+        for name, entry_dict in raw.items():
+            entries[name] = self.Entry(
+                name=name,
+                task=entry_dict["task"],
+                schedule=entry_dict["schedule"],
+                args=entry_dict.get("args", ()),
+                kwargs=entry_dict.get("kwargs", {}),
+                app=self.app,
+            )
+        if entries != self.schedule:
+            self.schedule = entries
         self._last_refresh_at = now

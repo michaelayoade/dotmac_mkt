@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import date
+from datetime import date as date_type
 
-from sqlalchemy import Date, Enum, ForeignKey, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,9 +34,20 @@ class Task(TimestampMixin, Base):
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("people.id"), nullable=True
     )
-    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    due_date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("people.id")
     )
 
     campaign = relationship("Campaign", back_populates="tasks")
+    assignee = relationship("Person", foreign_keys=[assignee_id])
+
+    @property
+    def is_overdue(self) -> bool:
+        if not self.due_date or self.status == TaskStatus.done:
+            return False
+        return self.due_date < date_type.today()
+
+    __table_args__ = (
+        Index("ix_task_campaign_id", "campaign_id"),
+    )

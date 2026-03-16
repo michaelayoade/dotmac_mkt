@@ -1,13 +1,16 @@
 import logging
 from datetime import date, timedelta
 
+import httpx
+
+from app.adapters.registry import get_adapter
 from app.celery_app import celery_app
 from app.db import SessionLocal
-from app.models.channel import Channel, ChannelStatus
+from app.models.channel import ChannelStatus
+from app.models.channel_metric import MetricType
 from app.services.analytics_service import AnalyticsService
 from app.services.channel_service import ChannelService
 from app.services.credential_service import CredentialService
-from app.adapters.registry import get_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +42,7 @@ def analytics_sync():
             try:
                 _sync_channel(channel, cred_svc, analytics_svc, start, end)
                 channel_svc.update_last_synced(channel.id)
-            except (ValueError, RuntimeError, ConnectionError) as e:
+            except (ValueError, RuntimeError, ConnectionError, httpx.HTTPError) as e:
                 logger.error("Analytics sync failed for %s: %s", channel.name, e)
                 channel_svc.update_status(channel.id, ChannelStatus.error)
 
@@ -84,10 +87,15 @@ def _sync_channel(channel, cred_svc, analytics_svc, start, end):
     metrics = asyncio.run(adapter.fetch_analytics(start, end))
 
     for m in metrics:
+        try:
+            mt = MetricType(m.metric_type)
+        except ValueError:
+            logger.warning("Unknown metric type %s from %s, skipping", m.metric_type, channel.name)
+            continue
         analytics_svc.upsert_metric(
             channel_id=channel.id,
             metric_date=m.metric_date,
-            metric_type_str=m.metric_type,
+            metric_type=mt,
             value=m.value,
             post_id=None,  # Channel-level metrics
         )

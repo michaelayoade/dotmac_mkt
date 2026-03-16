@@ -300,10 +300,10 @@ def _include_api_router(router: object, dependencies: list[Any] | None = None) -
 
 
 from app.api.billing import router as billing_router  # noqa: E402
-from app.api.posts import router as posts_router  # noqa: E402
 from app.api.deps import require_role, require_user_auth  # noqa: E402
 from app.api.file_uploads import router as file_uploads_router  # noqa: E402
 from app.api.notifications import router as notifications_router  # noqa: E402
+from app.api.posts import router as posts_router  # noqa: E402
 from app.api.ws import router as ws_router  # noqa: E402
 from app.web.analytics import router as web_analytics_router  # noqa: E402
 from app.web.assets import router as web_assets_router  # noqa: E402

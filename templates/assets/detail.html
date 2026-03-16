@@ -20,11 +20,11 @@
                 <div class="aspect-video bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                     {% set image_types = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'] %}
                     {% set video_types = ['video/mp4', 'video/webm', 'video/ogg'] %}
-                    {% if asset.mime_type in image_types and asset.file_url %}
-                    <img src="{{ asset.file_url }}" alt="{{ asset.name if asset.name else '' }}" class="max-w-full max-h-full object-contain" />
-                    {% elif asset.mime_type in video_types and asset.file_url %}
+                    {% if asset.mime_type in image_types and asset.drive_url %}
+                    <img src="{{ asset.drive_url }}" alt="{{ asset.name if asset.name else '' }}" class="max-w-full max-h-full object-contain" />
+                    {% elif asset.mime_type in video_types and asset.drive_url %}
                     <video controls class="max-w-full max-h-full">
-                        <source src="{{ asset.file_url }}" type="{{ asset.mime_type }}">
+                        <source src="{{ asset.drive_url }}" type="{{ asset.mime_type }}">
                         Your browser does not support the video tag.
                     </video>
                     {% else %}
@@ -65,7 +65,7 @@
 
                 {# Drive status #}
                 {% set drive_status_map = {
-                    'synced': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                    'active': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
                     'missing': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
                     'access_denied': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
                     'not_linked': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
@@ -107,7 +107,7 @@
             <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
                 <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Linked Campaigns</h3>
                 <div class="space-y-1.5">
-                    {% for campaign in linked_campaigns if linked_campaigns is defined %}
+                    {% for campaign in campaigns %}
                     <a href="/campaigns/{{ campaign.id }}" class="block text-sm text-primary-600 dark:text-primary-400 hover:underline">
                         {{ campaign.name if campaign.name else '' }}
                     </a>

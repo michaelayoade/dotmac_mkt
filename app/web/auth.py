@@ -26,7 +26,7 @@ def _is_secure_request(request: Request) -> bool:
 @router.get("/login", response_class=HTMLResponse)
 def login_page(
     request: Request,
-    next: str = "/admin",
+    next: str = "/",
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     branding = load_branding_context(db)
@@ -62,7 +62,7 @@ def _login_error(
 def _safe_next_url(url: str) -> str:
     if url.startswith("/") and not url.startswith("//") and "://" not in url:
         return url
-    return "/admin"
+    return "/"
 
 
 @router.post("/login", response_model=None)
@@ -73,7 +73,7 @@ async def login_submit(
     form = await request.form()
     username = str(form.get("username", "")).strip()
     password = str(form.get("password", ""))
-    next_url = _safe_next_url(str(form.get("next", "/admin")))
+    next_url = _safe_next_url(str(form.get("next", "/")))
 
     if not username or not password:
         return _login_error(request, db, "Username and password are required", next_url)

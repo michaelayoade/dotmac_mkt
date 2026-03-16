@@ -5,7 +5,20 @@
 
 {% block admin_content %}
 <div class="space-y-6">
-    <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Channels</h1>
+    <div class="flex items-center justify-between gap-4">
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Channels</h1>
+        <div class="flex items-center gap-2">
+            <a href="/channels/meta/connect" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700">
+                Connect Meta
+            </a>
+            <a href="/channels/create" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Channel
+            </a>
+        </div>
+    </div>
 
     {% set provider_info = {
         'meta_instagram': {"name": "Meta Instagram", "icon": "M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"},
@@ -25,7 +38,8 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for channel in channels %}
-        {% set info = provider_info.get(channel.provider_type | string if channel.provider_type else '', {"name": channel.provider_type | replace('_', ' ') | title if channel.provider_type else 'Unknown', "icon": ""}) %}
+        {% set provider_val = channel.provider | string if channel.provider else '' %}
+        {% set info = provider_info.get(provider_val, {"name": provider_val | replace('_', ' ') | title if provider_val else 'Unknown', "icon": ""}) %}
         <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
             <div class="flex items-start justify-between mb-4">
                 <div class="flex items-center gap-3">
@@ -36,22 +50,48 @@
                     </div>
                     <div>
                         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{{ info.name }}</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ channel.account_name if channel.account_name else '' }}</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ channel.external_account_id if channel.external_account_id else '' }}</p>
                     </div>
                 </div>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ connection_badge_map.get(channel.connection_status if channel.connection_status else 'disconnected', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
-                    {{ channel.connection_status | replace('_', ' ') | title if channel.connection_status else 'Disconnected' }}
+                {% set status_val = channel.status | string if channel.status else 'disconnected' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ connection_badge_map.get(status_val, 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400') }}">
+                    {{ status_val | replace('_', ' ') | title }}
                 </span>
             </div>
 
             {% if channel.last_synced_at %}
-            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
                 Last synced: {{ channel.last_synced_at.strftime('%b %d, %Y %H:%M') }}
             </p>
             {% endif %}
 
+            {# Per-channel metrics (last 30 days) #}
+            {% set cm = channel_metrics.get(channel.id | string, {}) if channel_metrics is defined else {} %}
+            {% if cm and (cm.impressions or cm.reach or cm.clicks or cm.engagement) %}
+            <div class="grid grid-cols-2 gap-2 mb-4 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/40">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Impressions</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ '{:,}'.format(cm.impressions) }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Reach</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ '{:,}'.format(cm.reach) }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Clicks</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ '{:,}'.format(cm.clicks) }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Engagement</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ '{:,}'.format(cm.engagement) }}</p>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-xs text-slate-400 dark:text-slate-500 mb-4 italic">No metrics yet (last 30 days)</p>
+            {% endif %}
+
             <div class="flex gap-2">
-                {% if channel.connection_status == 'connected' %}
+                {% if channel.status and channel.status | string == 'connected' %}
                 <form method="POST" action="/channels/{{ channel.id }}/disconnect" onsubmit="return confirm('Disconnect this channel?');" class="flex-1">
                     {{ request.state.csrf_form | safe }}
                     <button type="submit" class="w-full px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
@@ -59,14 +99,61 @@
                     </button>
                 </form>
                 {% else %}
-                <a href="/channels/{{ channel.id }}/connect" class="flex-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-xs font-medium text-center shadow-sm btn-hover">
-                    Connect
-                </a>
+                {% set provider_val = channel.provider | string if channel.provider else '' %}
+                <form method="GET" action="/channels/{{ provider_val }}/connect" class="flex-1 space-y-2">
+                    {% if provider_val not in ['meta_facebook', 'meta_instagram'] %}
+                    <label class="block">
+                        <span class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            {{ provider_labels.get(provider_val, 'External Account ID') }}
+                        </span>
+                        <input
+                            type="text"
+                            name="external_account_id"
+                            value="{{ channel.external_account_id if channel.external_account_id else '' }}"
+                            placeholder="{{ provider_placeholders.get(provider_val, '') }}"
+                            class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white"
+                        >
+                    </label>
+                    {% else %}
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Uses the Meta app credentials from Settings and discovers Pages / Instagram accounts after OAuth.</p>
+                    {% endif %}
+                    <button type="submit" class="w-full px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-xs font-medium text-center shadow-sm btn-hover">
+                        Connect
+                    </button>
+                </form>
                 {% endif %}
-                <a href="/channels/{{ channel.id }}" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700">
-                    Settings
-                </a>
             </div>
+
+            {% if not (channel.status and channel.status | string == 'connected') %}
+            <details class="mt-3">
+                <summary class="cursor-pointer text-xs font-medium text-slate-500 dark:text-slate-400">Use access token instead</summary>
+                <form method="POST" action="/channels/{{ provider_val }}/manual-connect" class="mt-3 space-y-2">
+                    {{ request.state.csrf_form | safe }}
+                    <input
+                        type="text"
+                        name="external_account_id"
+                        value="{{ channel.external_account_id if channel.external_account_id else '' }}"
+                        placeholder="{{ provider_labels.get(provider_val, 'External Account ID') }}"
+                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white"
+                    >
+                    <input
+                        type="text"
+                        name="access_token"
+                        placeholder="Access token"
+                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white"
+                    >
+                    <input
+                        type="text"
+                        name="refresh_token"
+                        placeholder="Refresh token (optional)"
+                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white"
+                    >
+                    <button type="submit" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700">
+                        Save Token
+                    </button>
+                </form>
+            </details>
+            {% endif %}
         </div>
         {% else %}
         {{ empty_state("No channels configured") }}

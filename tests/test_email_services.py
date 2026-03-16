@@ -3,8 +3,6 @@
 import smtplib
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.services.email import (
     _env_bool,
     _env_int,

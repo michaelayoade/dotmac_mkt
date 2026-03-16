@@ -24,18 +24,22 @@ class TwitterAdapter(ChannelAdapter):
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.access_token}"}
 
-    async def connect(self, auth_code: str) -> dict:
+    async def connect(
+        self, auth_code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> dict:
         """Exchange OAuth 2.0 PKCE auth code for an access token."""
+        data = {
+            "grant_type": "authorization_code",
+            "code": auth_code,
+            "client_id": settings.twitter_client_id,
+            "redirect_uri": redirect_uri,
+        }
+        if code_verifier:
+            data["code_verifier"] = code_verifier
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{X_API}/oauth2/token",
-                data={
-                    "grant_type": "authorization_code",
-                    "code": auth_code,
-                    "client_id": settings.twitter_client_id,
-                    "redirect_uri": "",  # must match app config
-                    "code_verifier": "",  # PKCE verifier — caller must supply
-                },
+                data=data,
                 auth=(settings.twitter_client_id, settings.twitter_client_secret),
             )
             resp.raise_for_status()
@@ -43,6 +47,28 @@ class TwitterAdapter(ChannelAdapter):
             self.access_token = data.get("access_token", self.access_token)
             logger.info("Twitter OAuth token exchanged for account %s", self.account_id)
             return data
+
+    async def refresh_token(self, refresh_token_value: str) -> dict | None:
+        """Refresh an expired Twitter OAuth 2.0 token."""
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{X_API}/oauth2/token",
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token_value,
+                        "client_id": settings.twitter_client_id,
+                    },
+                    auth=(settings.twitter_client_id, settings.twitter_client_secret),
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self.access_token = data.get("access_token", self.access_token)
+                logger.info("Twitter token refreshed for account %s", self.account_id)
+                return data
+        except httpx.HTTPError as e:
+            logger.warning("Twitter token refresh failed: %s", e)
+            return None
 
     async def disconnect(self) -> None:
         """Revoke the access token (best-effort)."""

@@ -4,7 +4,6 @@ import uuid
 
 import pytest
 
-from app.models.notification import Notification, NotificationType
 from app.schemas.notification import NotificationCreate
 from app.services.notification import NotificationService
 
