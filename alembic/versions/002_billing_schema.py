@@ -18,76 +18,101 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # ── Add 'billing' to settingdomain enum ───────────────
+    op.execute(sa.text("ALTER TYPE settingdomain ADD VALUE IF NOT EXISTS 'billing'"))
+
     # ── Pre-create enum types safely ──────────────────────
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE pricetype AS ENUM ('one_time', 'recurring'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE billingscheme AS ENUM ('per_unit', 'tiered'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE recurringinterval AS ENUM ('day', 'week', 'month', 'year'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE subscriptionstatus AS ENUM "
-        "('incomplete', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE invoicestatus AS ENUM ('draft', 'open', 'paid', 'void', 'uncollectible'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE paymentmethodtype AS ENUM ('card', 'bank_account', 'wallet', 'other'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE paymentintentstatus AS ENUM "
-        "('requires_payment_method', 'requires_confirmation', 'processing', "
-        "'succeeded', 'canceled', 'requires_action'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE usageaction AS ENUM ('increment', 'set'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE couponduration AS ENUM ('once', 'repeating', 'forever'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE entitlementvaluetype AS ENUM ('boolean', 'numeric', 'string', 'unlimited'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE webhookeventstatus AS ENUM ('pending', 'processed', 'failed'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE pricetype AS ENUM ('one_time', 'recurring'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE billingscheme AS ENUM ('per_unit', 'tiered'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE recurringinterval AS ENUM ('day', 'week', 'month', 'year'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE subscriptionstatus AS ENUM "
+            "('incomplete', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE invoicestatus AS ENUM ('draft', 'open', 'paid', 'void', 'uncollectible'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE paymentmethodtype AS ENUM ('card', 'bank_account', 'wallet', 'other'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE paymentintentstatus AS ENUM "
+            "('requires_payment_method', 'requires_confirmation', 'processing', "
+            "'succeeded', 'canceled', 'requires_action'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE usageaction AS ENUM ('increment', 'set'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE couponduration AS ENUM ('once', 'repeating', 'forever'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE entitlementvaluetype AS ENUM ('boolean', 'numeric', 'string', 'unlimited'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE webhookeventstatus AS ENUM ('pending', 'processed', 'failed'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
 
     # Products
     op.create_table(
@@ -112,24 +137,32 @@ def upgrade() -> None:
         sa.Column(
             "type",
             postgresql.ENUM(
-                "one_time", "recurring",
-                name="pricetype", create_type=False,
+                "one_time",
+                "recurring",
+                name="pricetype",
+                create_type=False,
             ),
             nullable=False,
         ),
         sa.Column(
             "billing_scheme",
             postgresql.ENUM(
-                "per_unit", "tiered",
-                name="billingscheme", create_type=False,
+                "per_unit",
+                "tiered",
+                name="billingscheme",
+                create_type=False,
             ),
             nullable=True,
         ),
         sa.Column(
             "recurring_interval",
             postgresql.ENUM(
-                "day", "week", "month", "year",
-                name="recurringinterval", create_type=False,
+                "day",
+                "week",
+                "month",
+                "year",
+                name="recurringinterval",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -175,9 +208,15 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "incomplete", "trialing", "active", "past_due",
-                "canceled", "unpaid", "paused",
-                name="subscriptionstatus", create_type=False,
+                "incomplete",
+                "trialing",
+                "active",
+                "past_due",
+                "canceled",
+                "unpaid",
+                "paused",
+                name="subscriptionstatus",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -236,8 +275,13 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "draft", "open", "paid", "void", "uncollectible",
-                name="invoicestatus", create_type=False,
+                "draft",
+                "open",
+                "paid",
+                "void",
+                "uncollectible",
+                name="invoicestatus",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -301,8 +345,12 @@ def upgrade() -> None:
         sa.Column(
             "type",
             postgresql.ENUM(
-                "card", "bank_account", "wallet", "other",
-                name="paymentmethodtype", create_type=False,
+                "card",
+                "bank_account",
+                "wallet",
+                "other",
+                name="paymentmethodtype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -331,9 +379,14 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "requires_payment_method", "requires_confirmation",
-                "processing", "succeeded", "canceled", "requires_action",
-                name="paymentintentstatus", create_type=False,
+                "requires_payment_method",
+                "requires_confirmation",
+                "processing",
+                "succeeded",
+                "canceled",
+                "requires_action",
+                name="paymentintentstatus",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -365,8 +418,10 @@ def upgrade() -> None:
         sa.Column(
             "action",
             postgresql.ENUM(
-                "increment", "set",
-                name="usageaction", create_type=False,
+                "increment",
+                "set",
+                name="usageaction",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -396,8 +451,11 @@ def upgrade() -> None:
         sa.Column(
             "duration",
             postgresql.ENUM(
-                "once", "repeating", "forever",
-                name="couponduration", create_type=False,
+                "once",
+                "repeating",
+                "forever",
+                name="couponduration",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -443,8 +501,12 @@ def upgrade() -> None:
         sa.Column(
             "value_type",
             postgresql.ENUM(
-                "boolean", "numeric", "string", "unlimited",
-                name="entitlementvaluetype", create_type=False,
+                "boolean",
+                "numeric",
+                "string",
+                "unlimited",
+                name="entitlementvaluetype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -472,8 +534,11 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "pending", "processed", "failed",
-                name="webhookeventstatus", create_type=False,
+                "pending",
+                "processed",
+                "failed",
+                name="webhookeventstatus",
+                create_type=False,
             ),
             nullable=True,
         ),

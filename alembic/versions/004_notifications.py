@@ -21,13 +21,15 @@ def upgrade() -> None:
     inspector = sa.inspect(conn)
 
     if not inspector.has_table("notifications"):
-        op.execute(sa.text(
-            "DO $$ BEGIN "
-            "CREATE TYPE notificationtype AS ENUM "
-            "('info', 'success', 'warning', 'error', 'system'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; "
-            "END $$"
-        ))
+        op.execute(
+            sa.text(
+                "DO $$ BEGIN "
+                "CREATE TYPE notificationtype AS ENUM "
+                "('info', 'success', 'warning', 'error', 'system'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; "
+                "END $$"
+            )
+        )
 
         op.create_table(
             "notifications",

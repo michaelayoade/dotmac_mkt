@@ -19,66 +19,86 @@ depends_on = None
 
 def upgrade() -> None:
     # ── Pre-create enum types safely ──────────────────────
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE gender AS ENUM ('unknown', 'female', 'male', 'non_binary', 'other'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE contactmethod AS ENUM ('email', 'phone', 'sms', 'push'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE personstatus AS ENUM ('active', 'inactive', 'archived'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE authprovider AS ENUM ('local', 'sso'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE mfamethodtype AS ENUM ('totp', 'sms', 'email'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE sessionstatus AS ENUM ('active', 'revoked', 'expired'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE auditactortype AS ENUM ('system', 'user', 'api_key', 'service'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE settingdomain AS ENUM ('auth', 'audit', 'scheduler'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE settingvaluetype AS ENUM ('string', 'integer', 'boolean', 'json'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
-    op.execute(sa.text(
-        "DO $$ BEGIN "
-        "CREATE TYPE scheduletype AS ENUM ('interval'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE gender AS ENUM ('unknown', 'female', 'male', 'non_binary', 'other'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE contactmethod AS ENUM ('email', 'phone', 'sms', 'push'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE personstatus AS ENUM ('active', 'inactive', 'archived'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE authprovider AS ENUM ('local', 'sso'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE mfamethodtype AS ENUM ('totp', 'sms', 'email'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE sessionstatus AS ENUM ('active', 'revoked', 'expired'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE auditactortype AS ENUM ('system', 'user', 'api_key', 'service'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE settingdomain AS ENUM ('auth', 'audit', 'scheduler'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE settingvaluetype AS ENUM ('string', 'integer', 'boolean', 'json'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "CREATE TYPE scheduletype AS ENUM ('interval'); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+    )
 
     # Core people + auth tables
     op.create_table(
@@ -96,16 +116,25 @@ def upgrade() -> None:
         sa.Column(
             "gender",
             postgresql.ENUM(
-                "unknown", "female", "male", "non_binary", "other",
-                name="gender", create_type=False,
+                "unknown",
+                "female",
+                "male",
+                "non_binary",
+                "other",
+                name="gender",
+                create_type=False,
             ),
             nullable=True,
         ),
         sa.Column(
             "preferred_contact_method",
             postgresql.ENUM(
-                "email", "phone", "sms", "push",
-                name="contactmethod", create_type=False,
+                "email",
+                "phone",
+                "sms",
+                "push",
+                name="contactmethod",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -120,8 +149,11 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "active", "inactive", "archived",
-                name="personstatus", create_type=False,
+                "active",
+                "inactive",
+                "archived",
+                name="personstatus",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -165,8 +197,11 @@ def upgrade() -> None:
         sa.Column(
             "method_type",
             postgresql.ENUM(
-                "totp", "sms", "email",
-                name="mfamethodtype", create_type=False,
+                "totp",
+                "sms",
+                "email",
+                name="mfamethodtype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -200,8 +235,11 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "active", "revoked", "expired",
-                name="sessionstatus", create_type=False,
+                "active",
+                "revoked",
+                "expired",
+                name="sessionstatus",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -292,8 +330,12 @@ def upgrade() -> None:
         sa.Column(
             "actor_type",
             postgresql.ENUM(
-                "system", "user", "api_key", "service",
-                name="auditactortype", create_type=False,
+                "system",
+                "user",
+                "api_key",
+                "service",
+                name="auditactortype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -318,8 +360,11 @@ def upgrade() -> None:
         sa.Column(
             "domain",
             postgresql.ENUM(
-                "auth", "audit", "scheduler",
-                name="settingdomain", create_type=False,
+                "auth",
+                "audit",
+                "scheduler",
+                name="settingdomain",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -327,8 +372,12 @@ def upgrade() -> None:
         sa.Column(
             "value_type",
             postgresql.ENUM(
-                "string", "integer", "boolean", "json",
-                name="settingvaluetype", create_type=False,
+                "string",
+                "integer",
+                "boolean",
+                "json",
+                name="settingvaluetype",
+                create_type=False,
             ),
             nullable=False,
         ),
