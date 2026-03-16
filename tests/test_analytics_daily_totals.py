@@ -1,4 +1,5 @@
 """Tests for AnalyticsService.get_daily_totals()."""
+
 from datetime import date, timedelta
 
 from app.models.channel_metric import MetricType

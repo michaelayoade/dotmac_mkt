@@ -3,6 +3,7 @@
 Usage:
     gunicorn -c gunicorn.conf.py app.main:app
 """
+
 from __future__ import annotations
 
 import multiprocessing
@@ -15,7 +16,9 @@ bind = os.getenv("GUNICORN_BIND", "0.0.0.0:8001")
 # Rule of thumb: 2-4 workers per CPU core for I/O-bound apps
 workers = int(os.getenv("GUNICORN_WORKERS", str(multiprocessing.cpu_count() * 2 + 1)))
 worker_class = "uvicorn.workers.UvicornWorker"
-worker_tmp_dir = "/dev/shm"  # RAM-backed tmpdir for heartbeat (prevents disk I/O issues)
+worker_tmp_dir = (
+    "/dev/shm"  # noqa: S108 — RAM-backed tmpdir for heartbeat (prevents disk I/O issues)
+)
 
 # ── Timeouts ─────────────────────────────────────────────
 timeout = int(os.getenv("GUNICORN_TIMEOUT", "120"))
@@ -34,7 +37,7 @@ preload_app = os.getenv("GUNICORN_PRELOAD", "false").lower() == "true"
 
 # ── Logging ──────────────────────────────────────────────
 accesslog = os.getenv("GUNICORN_ACCESSLOG", "-")  # stdout
-errorlog = os.getenv("GUNICORN_ERRORLOG", "-")    # stderr
+errorlog = os.getenv("GUNICORN_ERRORLOG", "-")  # stderr
 loglevel = os.getenv("GUNICORN_LOGLEVEL", "info")
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 

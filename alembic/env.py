@@ -1,22 +1,22 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
 from app.config import settings
 from app.db import Base
 from app.models import (  # noqa: F401
-    auth,
-    audit,
-    domain_settings,
-    person,
-    rbac,
-    scheduler,
     asset,
+    audit,
+    auth,
     campaign,
     channel,
     channel_metric,
+    domain_settings,
+    person,
     post,
+    rbac,
+    scheduler,
     task,
 )
 

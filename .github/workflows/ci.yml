@@ -206,6 +206,16 @@ jobs:
             sleep 2
           done
 
+      - name: Run database migrations  # pragma: allowlist secret
+        run: |
+          docker run --rm --network ci-net \
+            -e DATABASE_URL=postgresql+psycopg://postgres:postgres@ci-db:5432/starter_ci \
+            -e SECRET_KEY=ci-test-secret-key-not-for-production \
+            -e JWT_SECRET=ci-test-jwt-secret-key-minimum-32-bytes-long \
+            -e TOTP_ENCRYPTION_KEY=QLUJktsTSfZEbST4R-37XmQ0tCkiVCBXZN2Zt053w8g= \
+            starter-template:ci \
+            alembic upgrade head
+
       - name: Start application  # pragma: allowlist secret
         run: |
           docker run -d --name ci-app --network ci-net \

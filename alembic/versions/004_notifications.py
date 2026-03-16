@@ -4,9 +4,11 @@ Revision ID: 004_notifications
 Revises: 003_file_uploads
 Create Date: 2026-02-16
 """
-from alembic import op
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "004_notifications"
 down_revision = "003_file_uploads"
@@ -20,8 +22,13 @@ def upgrade() -> None:
 
     if not inspector.has_table("notifications"):
         notification_type = postgresql.ENUM(
-            "info", "success", "warning", "error", "system",
-            name="notificationtype", create_type=False,
+            "info",
+            "success",
+            "warning",
+            "error",
+            "system",
+            name="notificationtype",
+            create_type=False,
         )
         notification_type.create(conn, checkfirst=True)
 
@@ -34,8 +41,15 @@ def upgrade() -> None:
             sa.Column("message", sa.Text(), nullable=True),
             sa.Column(
                 "type",
-                sa.Enum("info", "success", "warning", "error", "system",
-                        name="notificationtype", create_type=False),
+                sa.Enum(
+                    "info",
+                    "success",
+                    "warning",
+                    "error",
+                    "system",
+                    name="notificationtype",
+                    create_type=False,
+                ),
                 server_default="info",
             ),
             sa.Column("entity_type", sa.String(80), nullable=True),
@@ -56,7 +70,9 @@ def upgrade() -> None:
                 server_default=sa.func.now(),
             ),
         )
-        op.create_index("ix_notifications_recipient_id", "notifications", ["recipient_id"])
+        op.create_index(
+            "ix_notifications_recipient_id", "notifications", ["recipient_id"]
+        )
         op.create_index(
             "ix_notifications_recipient_read",
             "notifications",

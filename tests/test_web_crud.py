@@ -1,8 +1,6 @@
 """Tests for web CRUD admin pages."""
 
 
-
-
 class TestWebPeople:
     def test_list_requires_auth(self, client):
         response = client.get("/admin/people", follow_redirects=False)

@@ -76,14 +76,13 @@ class TestAvatarSizeLimits:
         file.content_type = "image/jpeg"
         file.read = AsyncMock(side_effect=[content[:512], content[512:]])
 
-        with patch.object(
-            avatar_service.settings, "avatar_allowed_types", "image/jpeg"
-        ), patch.object(
-            avatar_service.settings, "avatar_max_size_bytes", 1024 * 1024
-        ), patch.object(
-            avatar_service.settings, "avatar_upload_dir", str(tmp_path)
-        ), patch.object(
-            avatar_service.settings, "avatar_url_prefix", "/static/avatars"
+        with (
+            patch.object(avatar_service.settings, "avatar_allowed_types", "image/jpeg"),
+            patch.object(avatar_service.settings, "avatar_max_size_bytes", 1024 * 1024),
+            patch.object(avatar_service.settings, "avatar_upload_dir", str(tmp_path)),
+            patch.object(
+                avatar_service.settings, "avatar_url_prefix", "/static/avatars"
+            ),
         ):
             url = await avatar_service.save_avatar(file, "person-123")
             assert url.startswith("/static/avatars/")
@@ -98,12 +97,12 @@ class TestAvatarSizeLimits:
         file.content_type = "image/jpeg"
         file.read = AsyncMock(side_effect=[content[:512], content[512:]])
 
-        with patch.object(
-            avatar_service.settings, "avatar_allowed_types", "image/jpeg"
-        ), patch.object(
-            avatar_service.settings, "avatar_max_size_bytes", 2 * 1024 * 1024
-        ), patch.object(
-            avatar_service.settings, "avatar_upload_dir", str(tmp_path)
+        with (
+            patch.object(avatar_service.settings, "avatar_allowed_types", "image/jpeg"),
+            patch.object(
+                avatar_service.settings, "avatar_max_size_bytes", 2 * 1024 * 1024
+            ),
+            patch.object(avatar_service.settings, "avatar_upload_dir", str(tmp_path)),
         ):
             with pytest.raises(HTTPException) as exc:
                 await avatar_service.save_avatar(file, "person-123")
@@ -146,10 +145,11 @@ class TestAvatarFileCleanup:
 
         avatar_url = "/static/avatars/test_avatar.jpg"
 
-        with patch.object(
-            avatar_service.settings, "avatar_url_prefix", "/static/avatars"
-        ), patch.object(
-            avatar_service.settings, "avatar_upload_dir", str(tmp_path)
+        with (
+            patch.object(
+                avatar_service.settings, "avatar_url_prefix", "/static/avatars"
+            ),
+            patch.object(avatar_service.settings, "avatar_upload_dir", str(tmp_path)),
         ):
             avatar_service.delete_avatar(avatar_url)
             assert not avatar_file.exists()
@@ -158,10 +158,11 @@ class TestAvatarFileCleanup:
         """Test deleting a non-existent avatar file doesn't raise."""
         avatar_url = "/static/avatars/nonexistent.jpg"
 
-        with patch.object(
-            avatar_service.settings, "avatar_url_prefix", "/static/avatars"
-        ), patch.object(
-            avatar_service.settings, "avatar_upload_dir", str(tmp_path)
+        with (
+            patch.object(
+                avatar_service.settings, "avatar_url_prefix", "/static/avatars"
+            ),
+            patch.object(avatar_service.settings, "avatar_upload_dir", str(tmp_path)),
         ):
             # Should not raise
             avatar_service.delete_avatar(avatar_url)
@@ -184,10 +185,11 @@ class TestAvatarFileCleanup:
 
         external_url = "https://example.com/avatar.jpg"
 
-        with patch.object(
-            avatar_service.settings, "avatar_url_prefix", "/static/avatars"
-        ), patch.object(
-            avatar_service.settings, "avatar_upload_dir", str(tmp_path)
+        with (
+            patch.object(
+                avatar_service.settings, "avatar_url_prefix", "/static/avatars"
+            ),
+            patch.object(avatar_service.settings, "avatar_upload_dir", str(tmp_path)),
         ):
             avatar_service.delete_avatar(external_url)
             # File should still exist since external URL was passed

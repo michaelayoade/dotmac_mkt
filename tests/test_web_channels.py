@@ -117,9 +117,7 @@ class TestWebChannels:
         )
 
         channel = db_session.scalar(
-            select(Channel).where(
-                Channel.provider == ChannelProvider.google_analytics
-            )
+            select(Channel).where(Channel.provider == ChannelProvider.google_analytics)
         )
         assert channel is not None
         assert channel.external_account_id == "123456789"
@@ -188,9 +186,7 @@ class TestWebChannels:
         import sys
 
         from cryptography.fernet import Fernet
-        from sqlalchemy import select
 
-        from app.models.channel import Channel
         from app.web.channels import _get_serializer
 
         mock_cfg = sys.modules["app.config"]
@@ -261,7 +257,10 @@ class TestWebChannels:
         )
 
         assert response.status_code == 302
-        assert response.headers["location"] == "/channels?success=Meta+connected+successfully"
+        assert (
+            response.headers["location"]
+            == "/channels?success=Meta+connected+successfully"
+        )
 
         facebook_channel = db_session.scalar(
             select(Channel).where(
@@ -286,7 +285,9 @@ class TestWebChannels:
         assert creds["account_id"] == "17841400000000000"
 
 
-async def _fake_discover_meta_assets(access_token: str, **kwargs) -> list[dict[str, str]]:
+async def _fake_discover_meta_assets(
+    access_token: str, **kwargs
+) -> list[dict[str, str]]:
     return [
         {
             "provider": "meta_facebook",

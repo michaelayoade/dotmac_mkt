@@ -4,9 +4,11 @@ Revision ID: 005_marketing_tables
 Revises: 004_notifications
 Create Date: 2026-03-14
 """
+
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "005_marketing_tables"
 down_revision = "004_notifications"
@@ -20,59 +22,98 @@ def upgrade() -> None:
 
     # ── Enums ────────────────────────────────────────────
     campaignstatus = postgresql.ENUM(
-        "draft", "active", "paused", "completed", "archived",
-        name="campaignstatus", create_type=False,
+        "draft",
+        "active",
+        "paused",
+        "completed",
+        "archived",
+        name="campaignstatus",
+        create_type=False,
     )
     campaignstatus.create(conn, checkfirst=True)
 
     campaignmemberrole = postgresql.ENUM(
-        "owner", "contributor",
-        name="campaignmemberrole", create_type=False,
+        "owner",
+        "contributor",
+        name="campaignmemberrole",
+        create_type=False,
     )
     campaignmemberrole.create(conn, checkfirst=True)
 
     channelprovider = postgresql.ENUM(
-        "meta_instagram", "meta_facebook", "twitter",
-        "linkedin", "google_ads", "google_analytics",
-        name="channelprovider", create_type=False,
+        "meta_instagram",
+        "meta_facebook",
+        "twitter",
+        "linkedin",
+        "google_ads",
+        "google_analytics",
+        name="channelprovider",
+        create_type=False,
     )
     channelprovider.create(conn, checkfirst=True)
 
     channelstatus = postgresql.ENUM(
-        "connected", "disconnected", "error",
-        name="channelstatus", create_type=False,
+        "connected",
+        "disconnected",
+        "error",
+        name="channelstatus",
+        create_type=False,
     )
     channelstatus.create(conn, checkfirst=True)
 
     poststatus = postgresql.ENUM(
-        "draft", "planned",
-        name="poststatus", create_type=False,
+        "draft",
+        "planned",
+        name="poststatus",
+        create_type=False,
     )
     poststatus.create(conn, checkfirst=True)
 
     assettype = postgresql.ENUM(
-        "image", "video", "document", "template", "brand_guide",
-        name="assettype", create_type=False,
+        "image",
+        "video",
+        "document",
+        "template",
+        "brand_guide",
+        name="assettype",
+        create_type=False,
     )
     assettype.create(conn, checkfirst=True)
 
     drivestatus = postgresql.ENUM(
-        "active", "missing", "access_denied",
-        name="drivestatus", create_type=False,
+        "active",
+        "missing",
+        "access_denied",
+        name="drivestatus",
+        create_type=False,
     )
     drivestatus.create(conn, checkfirst=True)
 
     taskstatus = postgresql.ENUM(
-        "todo", "in_progress", "done",
-        name="taskstatus", create_type=False,
+        "todo",
+        "in_progress",
+        "done",
+        name="taskstatus",
+        create_type=False,
     )
     taskstatus.create(conn, checkfirst=True)
 
     metrictype = postgresql.ENUM(
-        "impressions", "reach", "clicks", "engagement", "spend",
-        "conversions", "likes", "shares", "retweets",
-        "sessions", "pageviews", "users", "bounce_rate",
-        name="metrictype", create_type=False,
+        "impressions",
+        "reach",
+        "clicks",
+        "engagement",
+        "spend",
+        "conversions",
+        "likes",
+        "shares",
+        "retweets",
+        "sessions",
+        "pageviews",
+        "users",
+        "bounce_rate",
+        name="metrictype",
+        create_type=False,
     )
     metrictype.create(conn, checkfirst=True)
 
@@ -85,8 +126,15 @@ def upgrade() -> None:
             sa.Column("description", sa.Text(), nullable=True),
             sa.Column(
                 "status",
-                sa.Enum("draft", "active", "paused", "completed", "archived",
-                        name="campaignstatus", create_type=False),
+                sa.Enum(
+                    "draft",
+                    "active",
+                    "paused",
+                    "completed",
+                    "archived",
+                    name="campaignstatus",
+                    create_type=False,
+                ),
                 server_default="draft",
             ),
             sa.Column("start_date", sa.Date(), nullable=True),
@@ -97,8 +145,12 @@ def upgrade() -> None:
                 sa.ForeignKey("people.id"),
                 nullable=False,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
         )
 
     # ── channels ─────────────────────────────────────────
@@ -110,23 +162,37 @@ def upgrade() -> None:
             sa.Column(
                 "provider",
                 sa.Enum(
-                    "meta_instagram", "meta_facebook", "twitter",
-                    "linkedin", "google_ads", "google_analytics",
-                    name="channelprovider", create_type=False,
+                    "meta_instagram",
+                    "meta_facebook",
+                    "twitter",
+                    "linkedin",
+                    "google_ads",
+                    "google_analytics",
+                    name="channelprovider",
+                    create_type=False,
                 ),
                 nullable=False,
             ),
             sa.Column(
                 "status",
-                sa.Enum("connected", "disconnected", "error",
-                        name="channelstatus", create_type=False),
+                sa.Enum(
+                    "connected",
+                    "disconnected",
+                    "error",
+                    name="channelstatus",
+                    create_type=False,
+                ),
                 server_default="disconnected",
             ),
             sa.Column("credentials_encrypted", sa.LargeBinary(), nullable=True),
             sa.Column("external_account_id", sa.String(200), nullable=True),
             sa.Column("last_synced_at", sa.DateTime(timezone=True), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
         )
 
     # ── assets ───────────────────────────────────────────
@@ -137,8 +203,15 @@ def upgrade() -> None:
             sa.Column("name", sa.String(300), nullable=False),
             sa.Column(
                 "asset_type",
-                sa.Enum("image", "video", "document", "template", "brand_guide",
-                        name="assettype", create_type=False),
+                sa.Enum(
+                    "image",
+                    "video",
+                    "document",
+                    "template",
+                    "brand_guide",
+                    name="assettype",
+                    create_type=False,
+                ),
                 nullable=False,
             ),
             sa.Column("drive_file_id", sa.String(200), nullable=True),
@@ -149,8 +222,13 @@ def upgrade() -> None:
             sa.Column("tags", postgresql.JSONB(), server_default="[]"),
             sa.Column(
                 "drive_status",
-                sa.Enum("active", "missing", "access_denied",
-                        name="drivestatus", create_type=False),
+                sa.Enum(
+                    "active",
+                    "missing",
+                    "access_denied",
+                    name="drivestatus",
+                    create_type=False,
+                ),
                 server_default="active",
             ),
             sa.Column("last_verified_at", sa.DateTime(timezone=True), nullable=True),
@@ -160,8 +238,12 @@ def upgrade() -> None:
                 sa.ForeignKey("people.id"),
                 nullable=True,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
         )
 
     # ── posts ────────────────────────────────────────────
@@ -197,8 +279,12 @@ def upgrade() -> None:
                 sa.ForeignKey("people.id"),
                 nullable=False,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
         )
         op.create_index("ix_post_campaign_id", "posts", ["campaign_id"])
         op.create_index("ix_post_channel_id", "posts", ["channel_id"])
@@ -218,8 +304,9 @@ def upgrade() -> None:
             sa.Column("description", sa.Text(), nullable=True),
             sa.Column(
                 "status",
-                sa.Enum("todo", "in_progress", "done",
-                        name="taskstatus", create_type=False),
+                sa.Enum(
+                    "todo", "in_progress", "done", name="taskstatus", create_type=False
+                ),
                 server_default="todo",
             ),
             sa.Column(
@@ -235,8 +322,12 @@ def upgrade() -> None:
                 sa.ForeignKey("people.id"),
                 nullable=False,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
         )
         op.create_index("ix_task_campaign_id", "tasks", ["campaign_id"])
 
@@ -261,16 +352,31 @@ def upgrade() -> None:
             sa.Column(
                 "metric_type",
                 sa.Enum(
-                    "impressions", "reach", "clicks", "engagement", "spend",
-                    "conversions", "likes", "shares", "retweets",
-                    "sessions", "pageviews", "users", "bounce_rate",
-                    name="metrictype", create_type=False,
+                    "impressions",
+                    "reach",
+                    "clicks",
+                    "engagement",
+                    "spend",
+                    "conversions",
+                    "likes",
+                    "shares",
+                    "retweets",
+                    "sessions",
+                    "pageviews",
+                    "users",
+                    "bounce_rate",
+                    name="metrictype",
+                    create_type=False,
                 ),
                 nullable=False,
             ),
             sa.Column("value", sa.Numeric(18, 6), nullable=False),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
         )
         # Partial unique index: post-level metrics
         op.create_index(
@@ -342,8 +448,9 @@ def upgrade() -> None:
             ),
             sa.Column(
                 "role",
-                sa.Enum("owner", "contributor",
-                        name="campaignmemberrole", create_type=False),
+                sa.Enum(
+                    "owner", "contributor", name="campaignmemberrole", create_type=False
+                ),
                 server_default="contributor",
             ),
         )
@@ -361,8 +468,14 @@ def downgrade() -> None:
     op.drop_table("campaigns")
 
     for enum_name in [
-        "metrictype", "taskstatus", "drivestatus", "assettype",
-        "poststatus", "channelstatus", "channelprovider",
-        "campaignmemberrole", "campaignstatus",
+        "metrictype",
+        "taskstatus",
+        "drivestatus",
+        "assettype",
+        "poststatus",
+        "channelstatus",
+        "channelprovider",
+        "campaignmemberrole",
+        "campaignstatus",
     ]:
         op.execute(f"DROP TYPE IF EXISTS {enum_name}")

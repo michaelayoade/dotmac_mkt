@@ -1,7 +1,6 @@
 """Tests for web authentication routes."""
 
 
-
 class TestWebAuth:
     def test_login_page_renders(self, client):
         response = client.get("/admin/login")

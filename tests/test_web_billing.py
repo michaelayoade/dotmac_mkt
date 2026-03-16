@@ -1,8 +1,6 @@
 """Tests for billing admin web pages."""
 
 
-
-
 class TestWebBillingProducts:
     def test_list_requires_auth(self, client):
         response = client.get("/admin/billing/products", follow_redirects=False)

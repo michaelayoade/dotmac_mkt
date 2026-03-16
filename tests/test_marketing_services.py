@@ -14,7 +14,9 @@ class TestCampaignService:
         from app.services.campaign_service import CampaignService
 
         svc = CampaignService(db_session)
-        data = CampaignCreate(name="Service Campaign", description="Created via service")
+        data = CampaignCreate(
+            name="Service Campaign", description="Created via service"
+        )
         result = svc.create(data, created_by=person.id)
         db_session.commit()
 
@@ -79,9 +81,7 @@ class TestCampaignService:
         from app.services.campaign_service import CampaignService
 
         svc = CampaignService(db_session)
-        created = svc.create(
-            CampaignCreate(name="Original Name"), created_by=person.id
-        )
+        created = svc.create(CampaignCreate(name="Original Name"), created_by=person.id)
         db_session.commit()
 
         updated = svc.update(
