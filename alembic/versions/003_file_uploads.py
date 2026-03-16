@@ -46,7 +46,7 @@ def upgrade() -> None:
             sa.Column("entity_id", sa.String(120), nullable=True),
             sa.Column(
                 "status",
-                sa.Enum(
+                postgresql.ENUM(
                     "pending",
                     "active",
                     "deleted",
