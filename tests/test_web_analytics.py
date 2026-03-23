@@ -92,6 +92,9 @@ def test_analytics_overview_falls_back_to_channel_level_when_post_has_no_metrics
     assert response.status_code == 200
     html = response.text
     assert "Metrics Over Time" in html
-    assert "Peak: 125" in html
     assert "Reach" in html
     assert "Engagement" in html
+    assert week_ago.isoformat() in html
+    assert today.isoformat() in html
+    assert ">125<" in html
+    assert ">45<" in html
