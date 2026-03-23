@@ -13,10 +13,10 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.services.common import coerce_uuid
 from app.services.analytics_service import AnalyticsService
 from app.services.campaign_service import CampaignService
 from app.services.channel_service import ChannelService
+from app.services.common import coerce_uuid
 from app.templates import templates
 from app.web.deps import require_web_auth
 
@@ -164,9 +164,7 @@ def _build_time_series_chart(
         "max_value": max_value,
         "series": series,
         "labels": [{"date": d, "short": d[5:]} for d in dates],
-        "grid_lines": [
-            {"y": pad_y + (inner_height * step / 4)} for step in range(5)
-        ],
+        "grid_lines": [{"y": pad_y + (inner_height * step / 4)} for step in range(5)],
     }
 
 
@@ -179,7 +177,8 @@ def _build_channel_strengths(
         return []
 
     maxima = {
-        metric: max(float(row["metrics"].get(metric, 0)) for row in channel_metrics) or 1
+        metric: max(float(row["metrics"].get(metric, 0)) for row in channel_metrics)
+        or 1
         for metric in metric_keys
     }
     strengths = []
@@ -193,7 +192,9 @@ def _build_channel_strengths(
                     "key": metric,
                     "label": label,
                     "value": value,
-                    "pct": round((value / maxima[metric]) * 100) if maxima[metric] else 0,
+                    "pct": round((value / maxima[metric]) * 100)
+                    if maxima[metric]
+                    else 0,
                     "color": color,
                 }
             )

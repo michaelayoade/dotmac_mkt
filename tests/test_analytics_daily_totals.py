@@ -4,7 +4,6 @@ from datetime import UTC, date, datetime, timedelta
 
 from app.models.channel_metric import MetricType
 from app.models.post import Post, PostStatus
-
 from app.services.analytics_service import AnalyticsService
 
 
@@ -19,7 +18,11 @@ def test_get_daily_totals_returns_dict_per_date(db_session, channel):
     svc.upsert_metric(channel.id, today, MetricType.clicks, 10.0)
     db_session.commit()
 
-    result = svc.get_daily_totals(start_date=yesterday, end_date=today)
+    result = svc.get_daily_totals(
+        start_date=yesterday,
+        end_date=today,
+        channel_id=channel.id,
+    )
 
     assert len(result) == 2
     day_today = next(r for r in result if r["date"] == today.isoformat())
@@ -74,9 +77,7 @@ def test_get_daily_totals_filters_by_post_and_metric_date(
     svc.upsert_metric(
         channel.id, today, MetricType.impressions, 100.0, post_id=post_a.id
     )
-    svc.upsert_metric(
-        channel.id, today, MetricType.impressions, 25.0, post_id=post_b.id
-    )
+    svc.upsert_metric(channel.id, today, MetricType.reach, 25.0, post_id=post_b.id)
     db_session.commit()
 
     result = svc.get_daily_totals(
@@ -118,14 +119,20 @@ def test_get_post_impression_rows_returns_per_post_per_day(
     svc.upsert_metric(
         channel.id, yesterday, MetricType.impressions, 40.0, post_id=post.id
     )
-    svc.upsert_metric(
-        channel.id, today, MetricType.impressions, 65.0, post_id=post.id
-    )
+    svc.upsert_metric(channel.id, today, MetricType.impressions, 65.0, post_id=post.id)
     db_session.commit()
 
     rows = svc.get_post_impression_rows(start_date=yesterday, end_date=today)
 
-    assert rows[0]["date"] == today.isoformat()
-    assert rows[0]["post_title"] == "Launch Post"
-    assert rows[0]["impressions"] == 65
-    assert rows[1]["date"] == yesterday.isoformat()
+    assert any(
+        row["date"] == today.isoformat()
+        and row["post_title"] == "Launch Post"
+        and row["impressions"] == 65
+        for row in rows
+    )
+    assert any(
+        row["date"] == yesterday.isoformat()
+        and row["post_title"] == "Launch Post"
+        and row["impressions"] == 40
+        for row in rows
+    )

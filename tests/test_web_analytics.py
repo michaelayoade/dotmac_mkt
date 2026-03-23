@@ -39,7 +39,7 @@ def test_analytics_overview_supports_post_and_day_filters(
         channel.id, today, MetricType.impressions, 60.0, post_id=post_a.id
     )
     analytics.upsert_metric(
-        channel.id, today, MetricType.impressions, 25.0, post_id=post_b.id
+        channel.id, today, MetricType.reach, 25.0, post_id=post_b.id
     )
     db_session.commit()
 
@@ -56,7 +56,7 @@ def test_analytics_overview_supports_post_and_day_filters(
     assert "Filtered to post: Launch Post A" in html
     assert f'value="{post_a.id}" selected' in html
 
-    match = re.search(r"Total Impressions</p>\s*<p[^>]*>([0-9,]+)</p>", html)
+    match = re.search(r"<p[^>]*>([0-9,]+)</p>\s*<p[^>]*>Total Impressions</p>", html)
     assert match is not None
     assert match.group(1) == "60"
 

@@ -29,9 +29,8 @@ class AnalyticsService:
         post_id: UUID | None = None,
         metric_date: date | None = None,
     ) -> Select:
-        stmt = (
-            stmt.where(ChannelMetric.metric_date >= start_date)
-            .where(ChannelMetric.metric_date <= end_date)
+        stmt = stmt.where(ChannelMetric.metric_date >= start_date).where(
+            ChannelMetric.metric_date <= end_date
         )
         if channel_id is not None:
             stmt = stmt.where(ChannelMetric.channel_id == channel_id)
@@ -99,10 +98,7 @@ class AnalyticsService:
             post_id=post_id,
             metric_date=metric_date,
         )
-        stmt = (
-            stmt
-            .group_by(ChannelMetric.metric_type)
-        )
+        stmt = stmt.group_by(ChannelMetric.metric_type)
         rows = self.db.execute(stmt).all()
         return {row.metric_type.value: float(row.total) for row in rows}
 
@@ -121,8 +117,7 @@ class AnalyticsService:
                 ChannelMetric.metric_date,
                 ChannelMetric.metric_type,
                 func.sum(ChannelMetric.value).label("total"),
-            )
-            .where(
+            ).where(
                 ChannelMetric.metric_type.in_(
                     [
                         MetricType.impressions,
@@ -210,9 +205,8 @@ class AnalyticsService:
             start_date=start_date,
             end_date=end_date,
         )
-        stmt = (
-            stmt.group_by(Post.id, Post.title, Channel.name)
-            .order_by(func.max(ChannelMetric.metric_date).desc(), Post.title.asc())
+        stmt = stmt.group_by(Post.id, Post.title, Channel.name).order_by(
+            func.max(ChannelMetric.metric_date).desc(), Post.title.asc()
         )
         rows = self.db.execute(stmt).all()
         return [

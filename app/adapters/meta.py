@@ -29,8 +29,14 @@ class MetaAdapter(ChannelAdapter):
         self.access_token = access_token
         self.account_id = account_id
         self.provider = (
-            provider if isinstance(provider, ChannelProvider) else ChannelProvider(provider)
-        ) if provider else None
+            (
+                provider
+                if isinstance(provider, ChannelProvider)
+                else ChannelProvider(provider)
+            )
+            if provider
+            else None
+        )
         self.client_id = client_id or settings.meta_app_id
         self.client_secret = client_secret or settings.meta_app_secret
         self.graph_version = graph_version

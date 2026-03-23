@@ -37,7 +37,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Content Security Policy — restrictive but practical
-        response.headers["Content-Security-Policy"] = (
+        response.headers.setdefault(
+            "Content-Security-Policy",
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
@@ -46,7 +47,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "connect-src 'self'; "
             "frame-ancestors 'none'; "
             "base-uri 'self'; "
-            "form-action 'self'"
+            "form-action 'self'",
         )
 
         # HSTS — only set when behind TLS (proxy sets X-Forwarded-Proto)
