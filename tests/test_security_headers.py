@@ -60,12 +60,12 @@ class TestSecurityHeaders:
         csp = resp.headers["Content-Security-Policy"]
         assert "'unsafe-eval'" not in csp
 
-    def test_no_cdn_allowlist_in_csp(self, client: TestClient) -> None:
+    def test_only_expected_cdn_allowlist_in_csp(self, client: TestClient) -> None:
         resp = client.get("/test")
         csp = resp.headers["Content-Security-Policy"]
         assert "cdn.tailwindcss.com" not in csp
         assert "unpkg.com" not in csp
-        assert "cdn.jsdelivr.net" not in csp
+        assert "https://cdn.jsdelivr.net" in csp
 
     def test_no_hsts_without_https(self, client: TestClient) -> None:
         resp = client.get("/test")

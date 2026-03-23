@@ -23,4 +23,6 @@ def get_adapter(provider: ChannelProvider, **kwargs: str) -> ChannelAdapter:
     adapter_cls = ADAPTER_MAP.get(provider)
     if not adapter_cls:
         raise ValueError(f"No adapter for provider: {provider}")
+    if adapter_cls is MetaAdapter:
+        kwargs.setdefault("provider", provider)
     return adapter_cls(**kwargs)

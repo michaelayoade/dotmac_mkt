@@ -8,6 +8,7 @@ import httpx
 
 from app.adapters.base import ChannelAdapter, MetricData, PostData
 from app.config import settings
+from app.models.channel import ChannelProvider
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class MetaAdapter(ChannelAdapter):
         self,
         access_token: str,
         account_id: str,
+        provider: ChannelProvider | str | None = None,
         client_id: str | None = None,
         client_secret: str | None = None,
         graph_version: str = "v19.0",
@@ -26,6 +28,9 @@ class MetaAdapter(ChannelAdapter):
     ) -> None:
         self.access_token = access_token
         self.account_id = account_id
+        self.provider = (
+            provider if isinstance(provider, ChannelProvider) else ChannelProvider(provider)
+        ) if provider else None
         self.client_id = client_id or settings.meta_app_id
         self.client_secret = client_secret or settings.meta_app_secret
         self.graph_version = graph_version
@@ -37,6 +42,19 @@ class MetaAdapter(ChannelAdapter):
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.access_token}"}
+
+    def _analytics_metrics(self) -> list[tuple[str, str]]:
+        if self.provider == ChannelProvider.meta_instagram:
+            return [
+                ("views", "impressions"),
+                ("reach", "reach"),
+                ("total_interactions", "engagement"),
+            ]
+        return [
+            ("page_impressions", "impressions"),
+            ("page_impressions_unique", "reach"),
+            ("page_post_engagements", "engagement"),
+        ]
 
     async def connect(
         self, auth_code: str, redirect_uri: str, code_verifier: str | None = None
@@ -113,42 +131,58 @@ class MetaAdapter(ChannelAdapter):
     async def fetch_analytics(
         self, start_date: date, end_date: date
     ) -> list[MetricData]:
-        """Fetch insights (impressions, reach, engagement) for the account."""
-        metrics_param = "impressions,reach,engagement"
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.get(
-                    f"{self.graph_api}/{self.account_id}/insights",
-                    headers=self._headers(),
-                    params={
-                        "metric": metrics_param,
-                        "period": "day",
-                        "since": start_date.isoformat(),
-                        "until": end_date.isoformat(),
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
-        except httpx.HTTPError as e:
-            logger.warning("Meta fetch_analytics failed: %s", e)
-            return []
-
         results: list[MetricData] = []
-        for metric_block in data.get("data", []):
-            metric_name = metric_block.get("name", "")
-            for value_entry in metric_block.get("values", []):
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            for remote_metric, local_metric in self._analytics_metrics():
                 try:
-                    results.append(
-                        MetricData(
-                            metric_date=date.fromisoformat(
-                                value_entry["end_time"][:10]
-                            ),
-                            metric_type=metric_name,
-                            value=float(value_entry.get("value", 0)),
-                        )
+                    resp = await client.get(
+                        f"{self.graph_api}/{self.account_id}/insights",
+                        headers=self._headers(),
+                        params={
+                            "metric": remote_metric,
+                            "period": "day",
+                            "since": start_date.isoformat(),
+                            "until": end_date.isoformat(),
+                        },
                     )
-                except (KeyError, ValueError, TypeError) as e:
-                    logger.warning("Skipping malformed metric entry: %s", e)
+                    resp.raise_for_status()
+                    data = resp.json()
+                except httpx.HTTPError as e:
+                    logger.warning(
+                        "Meta fetch_analytics failed for %s metric %s: %s",
+                        self.account_id,
+                        remote_metric,
+                        e,
+                    )
+                    continue
+
+                for metric_block in data.get("data", []):
+                    for value_entry in metric_block.get("values", []):
+                        raw_value = value_entry.get("value", 0)
+                        if isinstance(raw_value, dict):
+                            logger.warning(
+                                "Skipping non-scalar metric value for %s metric %s",
+                                self.account_id,
+                                remote_metric,
+                            )
+                            continue
+                        try:
+                            results.append(
+                                MetricData(
+                                    metric_date=date.fromisoformat(
+                                        value_entry["end_time"][:10]
+                                    ),
+                                    metric_type=local_metric,
+                                    value=float(raw_value),
+                                )
+                            )
+                        except (KeyError, ValueError, TypeError) as e:
+                            logger.warning(
+                                "Skipping malformed metric entry for %s metric %s: %s",
+                                self.account_id,
+                                remote_metric,
+                                e,
+                            )
         return results
 
     async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:

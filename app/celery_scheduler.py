@@ -23,9 +23,9 @@ class DbScheduler(Scheduler):
         if now - self._last_refresh_at < max(refresh_seconds, 1):
             return
         raw = build_beat_schedule()
-        entries = {}
+        schedule = {}
         for name, entry_dict in raw.items():
-            entries[name] = self.Entry(
+            schedule[name] = self.Entry(
                 name=name,
                 task=entry_dict["task"],
                 schedule=entry_dict["schedule"],
@@ -33,6 +33,6 @@ class DbScheduler(Scheduler):
                 kwargs=entry_dict.get("kwargs", {}),
                 app=self.app,
             )
-        if entries != self.schedule:
-            self.schedule = entries
+        self.schedule.clear()
+        self.schedule.update(schedule)
         self._last_refresh_at = now
