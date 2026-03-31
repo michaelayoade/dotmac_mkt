@@ -170,9 +170,7 @@ def test_sync_linkedin_rows_maps_fields_correctly(db_session, channel):
 
     # LinkedIn creative → ads
     ads = list(
-        db_session.scalars(
-            select(Ad).where(Ad.ad_group_id == groups[0].id)
-        ).all()
+        db_session.scalars(select(Ad).where(Ad.ad_group_id == groups[0].id)).all()
     )
     assert len(ads) == 1
     assert ads[0].external_id == "li_cr_001"
@@ -236,14 +234,10 @@ def test_sync_upserts_existing_records(db_session, channel):
     ad_ids = [
         a.id
         for g in groups
-        for a in db_session.scalars(
-            select(Ad).where(Ad.ad_group_id == g.id)
-        ).all()
+        for a in db_session.scalars(select(Ad).where(Ad.ad_group_id == g.id)).all()
     ]
     metrics = list(
-        db_session.scalars(
-            select(AdMetric).where(AdMetric.ad_id.in_(ad_ids))
-        ).all()
+        db_session.scalars(select(AdMetric).where(AdMetric.ad_id.in_(ad_ids))).all()
     )
     assert len(metrics) == 1
     assert float(metrics[0].impressions) == 200

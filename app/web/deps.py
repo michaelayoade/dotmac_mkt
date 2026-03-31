@@ -39,6 +39,35 @@ def _is_secure_request(request: Request) -> bool:
     return proto == "https" or request.url.scheme == "https"
 
 
+def _set_cookie_and_queue(
+    request: Request,
+    response: Response,
+    *,
+    key: str,
+    value: str,
+    httponly: bool,
+    secure: bool,
+    samesite: str,
+    path: str,
+    max_age: int,
+    domain: str | None = None,
+) -> None:
+    cookie_kwargs = {
+        "key": key,
+        "value": value,
+        "httponly": httponly,
+        "secure": secure,
+        "samesite": samesite,
+        "path": path,
+        "max_age": max_age,
+        "domain": domain,
+    }
+    response.set_cookie(**cookie_kwargs)
+    queued = getattr(request.state, "auth_cookies_to_set", [])
+    queued.append(cookie_kwargs)
+    request.state.auth_cookies_to_set = queued
+
+
 def _refresh_web_tokens(request: Request, response: Response, db: Session) -> dict:
     refresh_token = AuthFlow.resolve_refresh_token(request, None, db)
     if not refresh_token:
@@ -55,7 +84,9 @@ def _refresh_web_tokens(request: Request, response: Response, db: Session) -> di
         raise WebAuthRedirect(next_url=request.url.path)
 
     secure = _is_secure_request(request)
-    response.set_cookie(
+    _set_cookie_and_queue(
+        request,
+        response,
         key="access_token",
         value=access_token,
         httponly=True,
@@ -65,7 +96,9 @@ def _refresh_web_tokens(request: Request, response: Response, db: Session) -> di
         max_age=3600,
     )
     refresh_settings = AuthFlow.refresh_cookie_settings(db)
-    response.set_cookie(
+    _set_cookie_and_queue(
+        request,
+        response,
         key=refresh_settings["key"],
         value=new_refresh_token,
         httponly=bool(refresh_settings["httponly"]),

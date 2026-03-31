@@ -62,20 +62,38 @@ def upgrade() -> None:
             ),
             sa.Column(
                 "platform",
-                postgresql.ENUM("meta", "google", "linkedin", name="adplatform", create_type=False),
+                postgresql.ENUM(
+                    "meta", "google", "linkedin", name="adplatform", create_type=False
+                ),
                 nullable=False,
             ),
             sa.Column("external_id", sa.String(200), nullable=False),
             sa.Column("name", sa.String(500), nullable=False),
             sa.Column(
                 "status",
-                postgresql.ENUM("active", "paused", "removed", "unknown", name="adentitystatus", create_type=False),
+                postgresql.ENUM(
+                    "active",
+                    "paused",
+                    "removed",
+                    "unknown",
+                    name="adentitystatus",
+                    create_type=False,
+                ),
                 server_default="unknown",
                 nullable=False,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.UniqueConstraint("channel_id", "platform", "external_id", name="uq_ad_campaign_channel_platform_ext"),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.UniqueConstraint(
+                "channel_id",
+                "platform",
+                "external_id",
+                name="uq_ad_campaign_channel_platform_ext",
+            ),
         )
         op.create_index("ix_ad_campaign_channel_id", "ad_campaigns", ["channel_id"])
         op.create_index("ix_ad_campaign_campaign_id", "ad_campaigns", ["campaign_id"])
@@ -95,13 +113,26 @@ def upgrade() -> None:
             sa.Column("name", sa.String(500), nullable=False),
             sa.Column(
                 "status",
-                postgresql.ENUM("active", "paused", "removed", "unknown", name="adentitystatus", create_type=False),
+                postgresql.ENUM(
+                    "active",
+                    "paused",
+                    "removed",
+                    "unknown",
+                    name="adentitystatus",
+                    create_type=False,
+                ),
                 server_default="unknown",
                 nullable=False,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.UniqueConstraint("ad_campaign_id", "external_id", name="uq_ad_group_campaign_ext"),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.UniqueConstraint(
+                "ad_campaign_id", "external_id", name="uq_ad_group_campaign_ext"
+            ),
         )
         op.create_index("ix_ad_group_ad_campaign_id", "ad_groups", ["ad_campaign_id"])
 
@@ -120,12 +151,23 @@ def upgrade() -> None:
             sa.Column("name", sa.String(500), nullable=False),
             sa.Column(
                 "status",
-                postgresql.ENUM("active", "paused", "removed", "unknown", name="adentitystatus", create_type=False),
+                postgresql.ENUM(
+                    "active",
+                    "paused",
+                    "removed",
+                    "unknown",
+                    name="adentitystatus",
+                    create_type=False,
+                ),
                 server_default="unknown",
                 nullable=False,
             ),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
             sa.UniqueConstraint("ad_group_id", "external_id", name="uq_ad_group_ext"),
         )
         op.create_index("ix_ad_ad_group_id", "ads", ["ad_group_id"])
@@ -150,8 +192,12 @@ def upgrade() -> None:
             sa.Column("ctr", sa.Numeric(10, 6), server_default="0"),
             sa.Column("cpc", sa.Numeric(18, 6), server_default="0"),
             sa.Column("currency_code", sa.String(10), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column(
+                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
+            sa.Column(
+                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+            ),
             sa.UniqueConstraint("ad_id", "metric_date", name="uq_ad_metric_ad_date"),
         )
         op.create_index("ix_ad_metric_date", "ad_metrics", ["metric_date"])

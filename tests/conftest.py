@@ -220,6 +220,7 @@ def client(db_session):
     from app.services.auth_dependencies import _get_db as auth_deps_get_db
 
     def override_get_db():
+        db_session.expire_all()
         yield db_session
 
     # Override shared db dependencies

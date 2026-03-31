@@ -228,6 +228,16 @@ async def audit_middleware(
     return response
 
 
+@app.middleware("http")
+async def apply_auth_cookie_updates(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    response = await call_next(request)
+    for cookie_kwargs in getattr(request.state, "auth_cookies_to_set", []):
+        response.set_cookie(**cookie_kwargs)
+    return response
+
+
 def _load_audit_settings(db: Session) -> dict[str, Any]:
     global _AUDIT_SETTINGS_CACHE, _AUDIT_SETTINGS_CACHE_AT
     now = monotonic()

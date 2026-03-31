@@ -74,8 +74,12 @@ def upgrade() -> None:
         sa.Column("external_post_id", sa.String(200), nullable=True),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
     op.create_index("ix_post_delivery_post_id", "post_deliveries", ["post_id"])
     op.create_index("ix_post_delivery_channel_id", "post_deliveries", ["channel_id"])

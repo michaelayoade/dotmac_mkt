@@ -43,26 +43,8 @@ def _canonicalize_url(url: str) -> str:
     return urlunsplit((scheme, host, parts.path, parts.query, parts.fragment))
 
 
-def _external_redirect_response(url: str) -> HTMLResponse:
-    escaped = (
-        url.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
-    return HTMLResponse(
-        content=(
-            "<!doctype html><html><head>"
-            f'<meta http-equiv="refresh" content="0;url={escaped}">'
-            '<meta name="referrer" content="no-referrer">'
-            "<title>Redirecting...</title>"
-            "</head><body>"
-            f"<script>window.location.replace({url!r});</script>"
-            f'<p>Redirecting to OAuth provider. If nothing happens, <a href="{escaped}">continue here</a>.</p>'
-            "</body></html>"
-        ),
-        status_code=200,
-    )
+def _external_redirect_response(url: str) -> RedirectResponse:
+    return RedirectResponse(url=url, status_code=302)
 
 
 _PROVIDER_KEY_MAP: dict[str, str] = {

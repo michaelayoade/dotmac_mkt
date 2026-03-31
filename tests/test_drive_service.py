@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from app.models.asset import AssetType
@@ -64,9 +62,7 @@ def test_upload_asset_file_creates_local_asset_record(db_session, person, monkey
     assert asset.uploaded_by == person.id
 
 
-def test_upload_asset_file_rejects_missing_drive_write_scope(
-    db_session, monkeypatch
-):
+def test_upload_asset_file_rejects_missing_drive_write_scope(db_session, monkeypatch):
     service = DriveService(db_session)
     monkeypatch.setattr(
         service,

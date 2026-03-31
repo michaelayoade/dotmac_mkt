@@ -37,9 +37,7 @@ def test_campaign_posts_tab_renders_split_view_with_post_metrics(
         channel.id, today - timedelta(days=1), MetricType.impressions, 120.0, post.id
     )
     analytics.upsert_metric(channel.id, today, MetricType.reach, 75.0, post.id)
-    analytics.upsert_metric(
-        channel.id, today, MetricType.engagement, 18.0, post.id
-    )
+    analytics.upsert_metric(channel.id, today, MetricType.engagement, 18.0, post.id)
     db_session.commit()
 
     response = client.get(
@@ -55,7 +53,7 @@ def test_campaign_posts_tab_renders_split_view_with_post_metrics(
     assert "120" in html
     assert "75" in html
     assert "18" in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/detail' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/detail" in html
 
 
 def test_campaign_list_renders_post_inspector_for_recent_posts(
@@ -74,13 +72,9 @@ def test_campaign_list_renders_post_inspector_for_recent_posts(
 
     analytics = AnalyticsService(db_session)
     today = date.today()
-    analytics.upsert_metric(
-        channel.id, today, MetricType.impressions, 310.0, post.id
-    )
+    analytics.upsert_metric(channel.id, today, MetricType.impressions, 310.0, post.id)
     analytics.upsert_metric(channel.id, today, MetricType.reach, 125.0, post.id)
-    analytics.upsert_metric(
-        channel.id, today, MetricType.engagement, 41.0, post.id
-    )
+    analytics.upsert_metric(channel.id, today, MetricType.engagement, 41.0, post.id)
     db_session.commit()
 
     response = client.get(
@@ -99,7 +93,7 @@ def test_campaign_list_renders_post_inspector_for_recent_posts(
     assert "310" in html
     assert "125" in html
     assert "41" in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/detail' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/detail" in html
 
 
 def test_campaign_post_detail_fragment_returns_selected_post_metrics(
@@ -173,8 +167,8 @@ def test_campaign_list_shows_edit_delete_actions_for_supported_published_posts(
 
     assert response.status_code == 200
     html = response.text
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/edit' in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/delete' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/edit" in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/delete" in html
 
 
 def test_campaign_posts_tab_shows_edit_delete_actions_for_supported_published_posts(
@@ -200,8 +194,8 @@ def test_campaign_posts_tab_shows_edit_delete_actions_for_supported_published_po
 
     assert response.status_code == 200
     html = response.text
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/edit' in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/delete' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/edit" in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/delete" in html
 
 
 def test_campaign_list_shows_edit_delete_actions_for_published_facebook_posts(
@@ -227,8 +221,8 @@ def test_campaign_list_shows_edit_delete_actions_for_published_facebook_posts(
 
     assert response.status_code == 200
     html = response.text
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/edit' in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/delete' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/edit" in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/delete" in html
 
 
 def test_campaign_posts_tab_shows_edit_delete_actions_for_published_facebook_posts(
@@ -254,8 +248,8 @@ def test_campaign_posts_tab_shows_edit_delete_actions_for_published_facebook_pos
 
     assert response.status_code == 200
     html = response.text
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/edit' in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/delete' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/edit" in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/delete" in html
 
 
 def test_campaign_posts_tab_shows_actions_for_single_delivery_published_facebook_post(
@@ -291,8 +285,8 @@ def test_campaign_posts_tab_shows_actions_for_single_delivery_published_facebook
 
     assert response.status_code == 200
     html = response.text
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/edit' in html
-    assert f'/campaigns/{campaign.id}/posts/{post.id}/delete' in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/edit" in html
+    assert f"/campaigns/{campaign.id}/posts/{post.id}/delete" in html
 
 
 # ── Post CRUD tests ──────────────────────────────────────────────────────────

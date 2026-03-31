@@ -277,16 +277,22 @@ class TestPublishingService:
         assert result.status == PostStatus.published
         deliveries = {
             delivery.channel_id: delivery
-            for delivery in db_session.query(PostDelivery).filter_by(post_id=post.id).all()
+            for delivery in db_session.query(PostDelivery)
+            .filter_by(post_id=post.id)
+            .all()
         }
         assert deliveries[success_channel.id].status == PostDeliveryStatus.published
-        assert deliveries[success_channel.id].external_post_id == "ok-Cross Platform Post"
+        assert (
+            deliveries[success_channel.id].external_post_id == "ok-Cross Platform Post"
+        )
         assert deliveries[success_channel.id].error_message is None
         assert deliveries[failing_channel.id].status == PostDeliveryStatus.failed
         assert deliveries[failing_channel.id].external_post_id is None
         assert deliveries[failing_channel.id].error_message == "remote publish failed"
 
-    def test_publish_raises_when_all_deliveries_fail(self, db_session, campaign, person):
+    def test_publish_raises_when_all_deliveries_fail(
+        self, db_session, campaign, person
+    ):
         from app.services.publishing_service import PublishingService
 
         failing_channel = Channel(
@@ -386,8 +392,7 @@ class TestPublishingService:
 
         assert issues
         assert next(iter(issues.values())) == (
-            "Instagram does not support image/webp assets. "
-            "Upload a JPG or PNG instead."
+            "Instagram does not support image/webp assets. Upload a JPG or PNG instead."
         )
 
     def test_update_published_post_uses_single_delivery_target(
@@ -564,9 +569,7 @@ class TestMetaAdapter:
         assert result.external_post_id == "final-media-1"
         assert result.url == "https://instagram.com/p/final-media-1"
 
-    def test_instagram_publish_raises_when_media_cannot_be_resolved(
-        self, monkeypatch
-    ):
+    def test_instagram_publish_raises_when_media_cannot_be_resolved(self, monkeypatch):
         from app.adapters.meta import MetaAdapter
         from app.models.channel import ChannelProvider
 

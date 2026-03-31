@@ -13,33 +13,45 @@ from app.services.secrets import resolve_secret
 logger = logging.getLogger(__name__)
 
 _ENV_FALLBACKS: dict[str, str] = {
-    "encryption_key": settings.encryption_key,
-    "meta_app_id": settings.meta_app_id,
-    "meta_app_secret": settings.meta_app_secret,
-    "twitter_client_id": settings.twitter_client_id,
-    "twitter_client_secret": settings.twitter_client_secret,
-    "linkedin_client_id": settings.linkedin_client_id,
-    "linkedin_client_secret": settings.linkedin_client_secret,
-    "google_ads_client_id": settings.google_ads_client_id,
-    "google_ads_client_secret": settings.google_ads_client_secret,
-    "google_ads_developer_token": settings.google_ads_developer_token,
-    "google_analytics_client_id": settings.google_analytics_client_id,
-    "google_analytics_client_secret": settings.google_analytics_client_secret,
-    "google_client_id": settings.google_ads_client_id
-    or settings.google_analytics_client_id
-    or settings.google_drive_client_id,
-    "google_client_secret": settings.google_ads_client_secret
-    or settings.google_analytics_client_secret
-    or settings.google_drive_client_secret,
-    "google_drive_client_id": settings.google_drive_client_id,
-    "google_drive_client_secret": settings.google_drive_client_secret,
-    "google_drive_folder_id": settings.google_drive_folder_id,
-    "crm_base_url": settings.crm_base_url,
-    "crm_api_key": settings.crm_api_key,
     "meta_graph_version": "v19.0",
     "meta_webhook_verify_token": "",
     "meta_api_timeout_seconds": "30",
 }
+
+
+def _settings_fallback(key: str) -> str:
+    direct_values = {
+        "encryption_key": settings.encryption_key,
+        "meta_app_id": settings.meta_app_id,
+        "meta_app_secret": settings.meta_app_secret,
+        "twitter_client_id": settings.twitter_client_id,
+        "twitter_client_secret": settings.twitter_client_secret,
+        "linkedin_client_id": settings.linkedin_client_id,
+        "linkedin_client_secret": settings.linkedin_client_secret,
+        "google_ads_client_id": settings.google_ads_client_id,
+        "google_ads_client_secret": settings.google_ads_client_secret,
+        "google_ads_developer_token": settings.google_ads_developer_token,
+        "google_analytics_client_id": settings.google_analytics_client_id,
+        "google_analytics_client_secret": settings.google_analytics_client_secret,
+        "google_drive_client_id": settings.google_drive_client_id,
+        "google_drive_client_secret": settings.google_drive_client_secret,
+        "google_drive_folder_id": settings.google_drive_folder_id,
+        "crm_base_url": settings.crm_base_url,
+        "crm_api_key": settings.crm_api_key,
+    }
+    if key == "google_client_id":
+        return (
+            settings.google_ads_client_id
+            or settings.google_analytics_client_id
+            or settings.google_drive_client_id
+        )
+    if key == "google_client_secret":
+        return (
+            settings.google_ads_client_secret
+            or settings.google_analytics_client_secret
+            or settings.google_drive_client_secret
+        )
+    return direct_values.get(key, "")
 
 
 def _read_raw(db: Session, key: str) -> str:
@@ -75,7 +87,9 @@ def get_marketing_value(key: str, db: Session | None = None) -> str:
             if raw:
                 return resolve_secret(raw) or ""
         for candidate_key in candidate_keys:
-            fallback = _ENV_FALLBACKS.get(candidate_key, "")
+            fallback = _settings_fallback(candidate_key) or _ENV_FALLBACKS.get(
+                candidate_key, ""
+            )
             if fallback:
                 return fallback
         return ""

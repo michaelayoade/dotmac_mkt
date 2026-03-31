@@ -49,7 +49,9 @@ def test_create_asset_uploads_file_to_drive_via_service(
     )
     monkeypatch.setattr(
         "app.web.assets.DriveService.get_folder",
-        lambda self, *, folder_id: {"id": folder_id, "name": "Marketing Resources"} if folder_id else None,
+        lambda self, *, folder_id: (
+            {"id": folder_id, "name": "Marketing Resources"} if folder_id else None
+        ),
     )
 
     resp = client.get("/assets/create", cookies={"access_token": auth_token})
@@ -110,7 +112,9 @@ def test_create_asset_can_link_uploaded_file_to_campaign(
     )
     monkeypatch.setattr(
         "app.web.assets.DriveService.get_folder",
-        lambda self, *, folder_id: {"id": folder_id, "name": "Marketing Resources"} if folder_id else None,
+        lambda self, *, folder_id: (
+            {"id": folder_id, "name": "Marketing Resources"} if folder_id else None
+        ),
     )
 
     resp = client.get(
@@ -139,12 +143,12 @@ def test_create_asset_can_link_uploaded_file_to_campaign(
     assert any(asset.name == "Campaign Banner" for asset in campaign.assets)
 
 
-def test_create_asset_form_shows_drive_folder_search(
-    client, auth_token, monkeypatch
-):
+def test_create_asset_form_shows_drive_folder_search(client, auth_token, monkeypatch):
     monkeypatch.setattr(
         "app.web.assets.DriveService.get_folder",
-        lambda self, *, folder_id: {"id": folder_id, "name": "Marketing Resources"} if folder_id else None,
+        lambda self, *, folder_id: (
+            {"id": folder_id, "name": "Marketing Resources"} if folder_id else None
+        ),
     )
 
     response = client.get(
@@ -184,7 +188,9 @@ def test_create_asset_form_refreshes_expired_access_cookie(
 
     monkeypatch.setattr(
         "app.web.assets.DriveService.get_folder",
-        lambda self, *, folder_id: {"id": folder_id, "name": "Marketing Resources"} if folder_id else None,
+        lambda self, *, folder_id: (
+            {"id": folder_id, "name": "Marketing Resources"} if folder_id else None
+        ),
     )
 
     response = client.get(
@@ -201,9 +207,7 @@ def test_create_asset_form_refreshes_expired_access_cookie(
     assert response.cookies.get("refresh_token")
 
 
-def test_drive_folder_search_returns_matching_items(
-    client, auth_token, monkeypatch
-):
+def test_drive_folder_search_returns_matching_items(client, auth_token, monkeypatch):
     monkeypatch.setattr(
         "app.web.assets.DriveService.search_folders",
         lambda self, *, query, limit: [
@@ -228,11 +232,15 @@ def test_drive_folder_search_shows_default_parent_and_children_on_empty_query(
 ):
     monkeypatch.setattr(
         "app.web.assets.DriveService.search_folders",
-        lambda self, *, query, limit: [
-            {"id": "default-folder", "name": "Marketing Resources"},
-            {"id": "folder-hd", "name": "HD resources"},
-            {"id": "folder-promo", "name": "promotional videos"},
-        ] if query == "" else [],
+        lambda self, *, query, limit: (
+            [
+                {"id": "default-folder", "name": "Marketing Resources"},
+                {"id": "folder-hd", "name": "HD resources"},
+                {"id": "folder-promo", "name": "promotional videos"},
+            ]
+            if query == ""
+            else []
+        ),
     )
 
     response = client.get(
@@ -381,4 +389,7 @@ def test_asset_detail_uses_mime_type_for_preview_when_asset_type_is_not_image(
     )
 
     assert response.status_code == 200
-    assert 'src="https://drive.google.com/thumbnail?id=abc123&amp;sz=w1600"' in response.text
+    assert (
+        'src="https://drive.google.com/thumbnail?id=abc123&amp;sz=w1600"'
+        in response.text
+    )

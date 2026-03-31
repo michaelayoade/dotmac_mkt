@@ -1,6 +1,5 @@
 import importlib
-from datetime import UTC, datetime
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import select
@@ -74,7 +73,9 @@ def test_sync_channel_maps_external_post_id_to_local_post(
     )
 
     analytics = AnalyticsService(db_session)
-    _sync_channel(channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24))
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
     db_session.commit()
 
     row = db_session.execute(
@@ -145,7 +146,9 @@ def test_sync_channel_matches_remote_posts_before_mapping_metrics(
     )
 
     analytics = AnalyticsService(db_session)
-    _sync_channel(channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24))
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
     db_session.commit()
     db_session.refresh(post)
 
@@ -182,7 +185,9 @@ def test_sync_channel_keeps_unmapped_external_post_metrics_at_channel_level(
     )
 
     analytics = AnalyticsService(db_session)
-    _sync_channel(channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24))
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
     db_session.commit()
 
     row = db_session.execute(
@@ -201,12 +206,16 @@ def test_sync_channel_keeps_unmapped_external_post_metrics_at_channel_level(
     )
     assert len(channel_metrics) == 1
     assert float(channel_metrics[0].value) == 80.0
-    channel_post_metrics = db_session.execute(
-        select(ChannelMetric).where(
-            ChannelMetric.channel_id == channel.id,
-            ChannelMetric.post_id.is_not(None),
+    channel_post_metrics = (
+        db_session.execute(
+            select(ChannelMetric).where(
+                ChannelMetric.channel_id == channel.id,
+                ChannelMetric.post_id.is_not(None),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert channel_post_metrics == []
 
 
@@ -221,7 +230,9 @@ def test_build_live_adapter_skips_refresh_for_manual_access_token_only(
         lambda provider, **kwargs: _InvalidManualTokenAdapter(),
     )
 
-    with pytest.raises(RuntimeError, match="manual access tokens are not auto-refreshed"):
+    with pytest.raises(
+        RuntimeError, match="manual access tokens are not auto-refreshed"
+    ):
         import asyncio
 
         asyncio.run(
@@ -275,7 +286,9 @@ def test_sync_channel_removes_missing_single_target_facebook_posts(
     )
 
     analytics = AnalyticsService(db_session)
-    _sync_channel(channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24))
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
     db_session.commit()
 
     assert db_session.get(Post, removed_post.id) is None
@@ -320,7 +333,9 @@ def test_sync_channel_removes_missing_single_delivery_facebook_posts(
     )
 
     analytics = AnalyticsService(db_session)
-    _sync_channel(channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24))
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
     db_session.commit()
 
     assert db_session.get(Post, post.id) is None

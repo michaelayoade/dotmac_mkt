@@ -214,7 +214,7 @@ class DriveService:
         logger.info("Uploaded asset to Drive: %s (%s)", target_name, created.get("id"))
         return self.create_asset_from_drive(
             file_id=created["id"],
-            name=created.get("name", target_name),
+            name=drive_filename or target_name,
             mime_type=created.get("mimeType", content_type),
             size=int(created.get("size", len(content))),
             web_view_link=created.get("webViewLink", ""),
