@@ -156,7 +156,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - uses: pre-commit/action@v3.0.1
+      - name: Install pre-commit
+        run: python -m pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files
 
   docker-build:
     name: Docker Build & Health Check
