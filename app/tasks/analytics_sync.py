@@ -3,7 +3,8 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
-from sqlalchemy import case, select
+from sqlalchemy import case, func, or_, select
+from sqlalchemy.orm import object_session
 
 from app.adapters.base import MetricData
 from app.adapters.registry import get_adapter
@@ -14,7 +15,7 @@ from app.models.channel import ChannelProvider, ChannelStatus
 from app.models.channel_metric import MetricType
 from app.models.person import Person
 from app.models.post import Post, PostStatus
-from app.models.post_delivery import PostDelivery
+from app.models.post_delivery import PostDelivery, PostDeliveryStatus
 from app.services.analytics_service import AnalyticsService
 from app.services.channel_service import ChannelService
 from app.services.credential_service import CredentialService
@@ -311,7 +312,12 @@ def _sync_external_post_ids(channel, adapter, analytics_svc, start: date) -> Non
         if match is None:
             continue
 
+        match.channel_id = match.channel_id or channel.id
+        match.status = PostStatus.published
+        if remote_post.published_at is not None:
+            match.published_at = remote_post.published_at
         match.external_post_id = external_id
+        _upsert_delivery_for_synced_post(channel, match, remote_post)
         matched += 1
 
     if matched:
@@ -443,6 +449,7 @@ def _import_remote_post(channel, remote_post, analytics_svc) -> Post | None:
     )
     analytics_svc.db.add(post)
     analytics_svc.db.flush()
+    _upsert_delivery_for_synced_post(channel, post, remote_post)
     logger.info(
         "Imported remote post %s into campaign %s for %s",
         remote_post.external_id,
@@ -470,14 +477,8 @@ def _select_campaign_for_remote_post(
             (Campaign.start_date.is_(None)) | (Campaign.start_date <= published_date)
         )
         .where((Campaign.end_date.is_(None)) | (Campaign.end_date >= published_date))
-        .order_by(
-            case((Campaign.status == CampaignStatus.active, 1), else_=0).desc(),
-            case((Campaign.start_date.is_not(None), 1), else_=0).desc(),
-            Campaign.start_date.desc(),
-            Campaign.created_at.desc(),
-        )
     )
-    campaign = db.scalar(in_window_stmt)
+    campaign = _prefer_channel_affine_campaign(db, channel.id, in_window_stmt)
     if campaign is not None:
         return campaign
 
@@ -494,15 +495,64 @@ def _select_campaign_for_remote_post(
                 ]
             )
         )
-        .order_by(
-            case((Campaign.status == CampaignStatus.active, 1), else_=0).desc(),
-            Campaign.created_at.desc(),
-        )
     )
-    campaign = db.scalar(fallback_stmt)
+    campaign = _prefer_channel_affine_campaign(db, channel.id, fallback_stmt)
     if campaign is not None:
         return campaign
     return _get_or_create_import_campaign(channel, analytics_svc)
+
+
+def _prefer_channel_affine_campaign(db, channel_id, stmt) -> Campaign | None:
+    channel_usage_expr = (
+        select(func.count(Post.id))
+        .where(
+            Post.campaign_id == Campaign.id,
+            or_(
+                Post.channel_id == channel_id,
+                Post.id.in_(
+                    select(PostDelivery.post_id).where(
+                        PostDelivery.channel_id == channel_id
+                    )
+                ),
+            ),
+        )
+        .correlate(Campaign)
+        .scalar_subquery()
+    )
+    ordered_stmt = stmt.order_by(
+        channel_usage_expr.desc(),
+        case((Campaign.status == CampaignStatus.active, 1), else_=0).desc(),
+        case((Campaign.start_date.is_not(None), 1), else_=0).desc(),
+        Campaign.start_date.desc(),
+        Campaign.created_at.desc(),
+    )
+    return db.scalar(ordered_stmt)
+
+
+def _upsert_delivery_for_synced_post(channel, post: Post, remote_post) -> None:
+    db = object_session(post)
+    if db is None:
+        return
+
+    delivery = db.scalar(
+        select(PostDelivery).where(
+            PostDelivery.post_id == post.id,
+            PostDelivery.channel_id == channel.id,
+        )
+    )
+    if delivery is None:
+        delivery = PostDelivery(
+            post_id=post.id,
+            channel_id=channel.id,
+            provider=channel.provider,
+        )
+        db.add(delivery)
+
+    delivery.provider = channel.provider
+    delivery.status = PostDeliveryStatus.published
+    delivery.external_post_id = (remote_post.external_id or "").strip() or None
+    delivery.published_at = remote_post.published_at
+    delivery.error_message = None
 
 
 def _get_or_create_import_campaign(channel, analytics_svc) -> Campaign | None:

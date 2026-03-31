@@ -90,8 +90,17 @@
                     <dd class="text-right text-slate-900 dark:text-white">{{ selected_post.published_at.strftime('%b %d, %Y %H:%M') if selected_post.published_at else 'Not published yet' }}</dd>
                 </div>
                 <div class="flex items-start justify-between gap-4">
-                    <dt class="text-slate-500 dark:text-slate-400">External Post ID</dt>
-                    <dd class="text-right text-slate-900 dark:text-white break-all">{{ selected_post.external_post_id if selected_post.external_post_id else 'Not linked' }}</dd>
+                    <dt class="text-slate-500 dark:text-slate-400">External Links</dt>
+                    <dd class="text-right text-slate-900 dark:text-white">
+                        {% for external_ref in external_reference_rows if external_reference_rows is defined %}
+                        <div class="break-all">
+                            <span class="text-slate-500 dark:text-slate-400">{{ external_ref.label }}:</span>
+                            {{ external_ref.value }}
+                        </div>
+                        {% else %}
+                        Not linked
+                        {% endfor %}
+                    </dd>
                 </div>
             </dl>
         </div>

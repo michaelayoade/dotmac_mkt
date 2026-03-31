@@ -189,6 +189,29 @@ def _delivery_rows(db: Session, post: Post | None) -> list[dict[str, str | bool]
     return rows
 
 
+def _external_reference_rows(db: Session, post: Post | None) -> list[dict[str, str]]:
+    if post is None:
+        return []
+
+    rows: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    if post.external_post_id:
+        rows.append({"label": "Primary post", "value": post.external_post_id})
+        seen.add(("Primary post", post.external_post_id))
+
+    for delivery in _safe_deliveries(db, post):
+        external_id = (delivery.external_post_id or "").strip()
+        if not external_id:
+            continue
+        label = delivery.channel.name if delivery.channel is not None else "Delivery"
+        key = (label, external_id)
+        if key in seen:
+            continue
+        rows.append({"label": label, "value": external_id})
+        seen.add(key)
+    return rows
+
+
 def _post_form_asset_urls(
     campaign_id: UUID, post_id: UUID | None = None
 ) -> dict[str, str]:
@@ -387,6 +410,7 @@ def _build_post_detail_ctx(
         "can_delete_post": can_delete_post,
         "delete_block_reason": delete_block_reason,
         "selected_channels": selected_channels,
+        "external_reference_rows": _external_reference_rows(db, post),
         "delivery_rows": _delivery_rows(db, post),
     }
 

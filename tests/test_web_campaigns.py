@@ -179,6 +179,43 @@ def test_campaign_post_detail_fragment_returns_selected_post_metrics(
     assert "33" in html
 
 
+def test_campaign_post_detail_fragment_shows_delivery_backed_external_links(
+    client, db_session, auth_token, campaign, channel, person
+):
+    post = Post(
+        campaign_id=campaign.id,
+        channel_id=None,
+        title="Delivery Synced Post",
+        content="Imported from channel sync",
+        status=PostStatus.published,
+        created_by=person.id,
+    )
+    db_session.add(post)
+    db_session.flush()
+    db_session.add(
+        PostDelivery(
+            post_id=post.id,
+            channel_id=channel.id,
+            provider=channel.provider,
+            status=PostDeliveryStatus.published,
+            external_post_id="ig-delivery-789",
+            published_at=datetime.now(UTC),
+        )
+    )
+    db_session.commit()
+
+    response = client.get(
+        f"/campaigns/{campaign.id}/posts/{post.id}/detail",
+        cookies={"access_token": auth_token},
+    )
+
+    assert response.status_code == 200
+    html = response.text
+    assert "External Links" in html
+    assert "Test Instagram:" in html
+    assert "ig-delivery-789" in html
+
+
 def test_campaign_list_shows_edit_delete_actions_for_supported_published_posts(
     client, db_session, auth_token, campaign, channel, person
 ):

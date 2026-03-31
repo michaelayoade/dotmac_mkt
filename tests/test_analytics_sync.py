@@ -264,6 +264,15 @@ def test_sync_channel_imports_remote_post_when_no_local_match(
     assert imported_post.channel_id == channel.id
     assert imported_post.status == PostStatus.published
     assert imported_post.title == "Fresh Instagram post from the native app"
+    delivery = db_session.scalar(
+        select(PostDelivery).where(
+            PostDelivery.post_id == imported_post.id,
+            PostDelivery.channel_id == channel.id,
+        )
+    )
+    assert delivery is not None
+    assert delivery.status == PostDeliveryStatus.published
+    assert delivery.external_post_id == "ig-123"
 
     row = db_session.execute(
         select(ChannelMetric).where(
@@ -321,6 +330,61 @@ def test_sync_channel_import_prefers_campaign_matching_publish_window(
     )
     assert imported_post is not None
     assert imported_post.campaign_id == matching_campaign.id
+
+
+def test_sync_channel_import_prefers_campaign_already_linked_to_channel(
+    db_session, campaign, channel, person, monkeypatch
+):
+    channel.provider = ChannelProvider.meta_instagram
+    channel.credentials_encrypted = b"encrypted"
+
+    campaign.status = CampaignStatus.active
+    campaign.start_date = date(2026, 3, 20)
+    campaign.end_date = date(2026, 3, 31)
+    existing_post = Post(
+        campaign_id=campaign.id,
+        channel_id=channel.id,
+        title="Existing Instagram Plan",
+        status=PostStatus.draft,
+        created_by=person.id,
+    )
+
+    other_campaign = Campaign(
+        name="Parallel Launch",
+        status=CampaignStatus.active,
+        start_date=date(2026, 3, 20),
+        end_date=date(2026, 3, 31),
+        created_by=person.id,
+    )
+    db_session.add_all([existing_post, other_campaign])
+    db_session.commit()
+
+    published_at = datetime(2026, 3, 24, 12, 0, tzinfo=UTC)
+    remote_posts = [
+        PostData(
+            external_id="ig-789",
+            title="",
+            content="Imported reel should land in linked campaign",
+            published_at=published_at,
+        )
+    ]
+    monkeypatch.setattr(
+        analytics_sync_module,
+        "get_adapter",
+        lambda provider, **kwargs: _FakeAdapter([], remote_posts),
+    )
+
+    analytics = AnalyticsService(db_session)
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
+    db_session.commit()
+
+    imported_post = db_session.scalar(
+        select(Post).where(Post.external_post_id == "ig-789")
+    )
+    assert imported_post is not None
+    assert imported_post.campaign_id == campaign.id
 
 
 def test_build_live_adapter_skips_refresh_for_manual_access_token_only(
