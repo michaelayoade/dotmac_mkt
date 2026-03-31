@@ -40,6 +40,50 @@ class AnalyticsService:
             stmt = stmt.where(ChannelMetric.metric_date == metric_date)
         return stmt
 
+    def _has_channel_level_metrics(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+        channel_id: UUID | None = None,
+        metric_date: date | None = None,
+    ) -> bool:
+        stmt = self._apply_metric_filters(
+            select(ChannelMetric.id).where(ChannelMetric.post_id.is_(None)),
+            start_date=start_date,
+            end_date=end_date,
+            channel_id=channel_id,
+            metric_date=metric_date,
+        ).limit(1)
+        return self.db.scalar(stmt) is not None
+
+    def _apply_aggregate_scope(
+        self,
+        stmt: Select,
+        *,
+        start_date: date,
+        end_date: date,
+        channel_id: UUID | None = None,
+        post_id: UUID | None = None,
+        metric_date: date | None = None,
+    ) -> Select:
+        stmt = self._apply_metric_filters(
+            stmt,
+            start_date=start_date,
+            end_date=end_date,
+            channel_id=channel_id,
+            post_id=post_id,
+            metric_date=metric_date,
+        )
+        if post_id is None and self._has_channel_level_metrics(
+            start_date=start_date,
+            end_date=end_date,
+            channel_id=channel_id,
+            metric_date=metric_date,
+        ):
+            stmt = stmt.where(ChannelMetric.post_id.is_(None))
+        return stmt
+
     def get_channel_metrics(
         self,
         channel_id: UUID,
@@ -49,10 +93,11 @@ class AnalyticsService:
         post_id: UUID | None = None,
         metric_date: date | None = None,
     ) -> list[ChannelMetric]:
-        stmt = self._apply_metric_filters(
+        stmt = self._apply_aggregate_scope(
             select(ChannelMetric).where(ChannelMetric.channel_id == channel_id),
             start_date=start_date,
             end_date=end_date,
+            channel_id=channel_id,
             post_id=post_id,
             metric_date=metric_date,
         )
@@ -88,7 +133,7 @@ class AnalyticsService:
         post_id: UUID | None = None,
         metric_date: date | None = None,
     ) -> dict:
-        stmt = self._apply_metric_filters(
+        stmt = self._apply_aggregate_scope(
             select(
                 ChannelMetric.metric_type,
                 func.sum(ChannelMetric.value).label("total"),
@@ -112,7 +157,7 @@ class AnalyticsService:
         metric_date: date | None = None,
     ) -> list[dict]:
         """Return daily-aggregated metrics as a list of dicts sorted by date."""
-        stmt = self._apply_metric_filters(
+        stmt = self._apply_aggregate_scope(
             select(
                 ChannelMetric.metric_date,
                 ChannelMetric.metric_type,
@@ -164,7 +209,7 @@ class AnalyticsService:
         metric_date: date | None = None,
     ) -> list[dict[str, str | float]]:
         """Return daily totals for every metric type in the selected range."""
-        stmt = self._apply_metric_filters(
+        stmt = self._apply_aggregate_scope(
             select(
                 ChannelMetric.metric_date,
                 ChannelMetric.metric_type,

@@ -6,7 +6,13 @@ from datetime import date, datetime
 
 import httpx
 
-from app.adapters.base import ChannelAdapter, MetricData, PostData
+from app.adapters.base import (
+    ChannelAdapter,
+    MetricData,
+    PostData,
+    PublishResult,
+    UpdateResult,
+)
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -16,6 +22,9 @@ X_API = "https://api.twitter.com/2"
 
 class TwitterAdapter(ChannelAdapter):
     """Adapter for X (Twitter) via API v2."""
+
+    supports_remote_update = True
+    supports_remote_delete = True
 
     def __init__(self, access_token: str, account_id: str) -> None:
         self.access_token = access_token
@@ -148,6 +157,75 @@ class TwitterAdapter(ChannelAdapter):
                     )
                 )
         return results
+
+    async def publish_post(
+        self,
+        content: str,
+        *,
+        media_urls: list[str] | None = None,
+        title: str | None = None,
+    ) -> PublishResult:
+        """Publish a tweet."""
+        payload: dict[str, object] = {"text": content}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{X_API}/tweets",
+                headers={**self._headers(), "Content-Type": "application/json"},
+                json=payload,
+            )
+            resp.raise_for_status()
+            tweet_id = resp.json().get("data", {}).get("id", "")
+        logger.info("Published tweet %s for account %s", tweet_id, self.account_id)
+        return PublishResult(
+            external_post_id=tweet_id,
+            url=f"https://x.com/i/status/{tweet_id}" if tweet_id else None,
+        )
+
+    async def update_post(
+        self,
+        external_post_id: str,
+        content: str,
+        *,
+        media_urls: list[str] | None = None,
+        title: str | None = None,
+    ) -> UpdateResult:
+        """Edit a post within X's edit window."""
+        payload: dict[str, object] = {
+            "text": content,
+            "edit_options": {"previous_post_id": external_post_id},
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{X_API}/tweets",
+                headers={**self._headers(), "Content-Type": "application/json"},
+                json=payload,
+            )
+            resp.raise_for_status()
+            updated_id = resp.json().get("data", {}).get("id", "")
+        logger.info(
+            "Updated tweet %s -> %s for account %s",
+            external_post_id,
+            updated_id,
+            self.account_id,
+        )
+        return UpdateResult(
+            external_post_id=updated_id or external_post_id,
+            url=f"https://x.com/i/status/{updated_id}" if updated_id else None,
+        )
+
+    async def delete_post(self, external_post_id: str) -> None:
+        """Delete a published post."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.delete(
+                f"{X_API}/tweets/{external_post_id}",
+                headers=self._headers(),
+            )
+            resp.raise_for_status()
+        logger.info(
+            "Deleted tweet %s for account %s",
+            external_post_id,
+            self.account_id,
+        )
 
     async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Fetch tweets from the user timeline."""

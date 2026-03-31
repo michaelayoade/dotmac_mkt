@@ -1,32 +1,98 @@
 {% from "admin/components/table_macros.html" import status_badge, empty_state %}
 
-<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-slate-200 dark:border-slate-700">
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Channel</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Scheduled</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                {% for post in posts %}
-                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
-                    <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ post.title if post.title else '' }}</td>
-                    <td class="px-4 py-3">{{ status_badge(post.status | string if post.status else '') }}</td>
-                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.channel.name if post.channel else '-' }}</td>
-                    <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4">
-                        {{ empty_state("No posts in this campaign") }}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div
+    x-data='{ selectedPost: "{{ selected_post.id if selected_post else "" }}" }'
+    class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]"
+>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="border-b border-slate-200 dark:border-slate-700 px-5 py-4 flex items-center justify-between gap-4">
+            <div>
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Organic Content</h3>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">These are organic posts planned inside this workspace, not paid ad campaigns.</p>
+            </div>
+            <a href="/campaigns/{{ campaign.id }}/posts/create"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New Organic Post
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Channel</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Scheduled</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for post in posts %}
+                    <tr
+                        x-on:click="selectedPost = '{{ post.id }}'"
+                        x-on:keydown.enter="selectedPost = '{{ post.id }}'; $el.dispatchEvent(new Event('click', {bubbles: true}))"
+                        tabindex="0"
+                        role="button"
+                        aria-label="View post: {{ post.title if post.title else 'Untitled' }}"
+                        hx-get="/campaigns/{{ campaign.id }}/posts/{{ post.id }}/detail"
+                        hx-target="#post-detail-panel"
+                        hx-swap="innerHTML"
+                        :class="selectedPost === '{{ post.id }}' ? 'bg-primary-50/80 dark:bg-primary-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:bg-slate-50 dark:focus:bg-slate-700/50'"
+                        class="cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+                    >
+                        <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ post.title if post.title else '' }}</td>
+                        <td class="px-4 py-3">{{ status_badge(post.status | string if post.status else '') }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.channel.name if post.channel else '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}</td>
+                        <td class="px-4 py-3" x-on:click.stop x-on:keydown.stop>
+                            <div class="flex items-center justify-end gap-2">
+                                {% if post.can_edit_post %}
+                                <a href="/campaigns/{{ campaign.id }}/posts/{{ post.id }}/edit"
+                                   class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                                   aria-label="Edit post {{ post.title if post.title else 'Untitled post' }}">
+                                    Edit
+                                </a>
+                                {% else %}
+                                <span class="text-xs text-slate-400 dark:text-slate-500"
+                                      title="{{ post.edit_block_reason if post.edit_block_reason else 'Editing unavailable' }}">
+                                    Edit unavailable
+                                </span>
+                                {% endif %}
+                                {% if post.can_delete_post %}
+                                <form method="POST"
+                                      action="/campaigns/{{ campaign.id }}/posts/{{ post.id }}/delete"
+                                      onsubmit="return confirm('Delete this post? This cannot be undone.');"
+                                      class="inline">
+                                    {{ request.state.csrf_form | safe }}
+                                    <button type="submit"
+                                            class="inline-flex items-center gap-1 rounded-lg border border-red-300 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+                                            aria-label="Delete post {{ post.title if post.title else 'Untitled post' }}">
+                                        Delete
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-xs text-slate-400 dark:text-slate-500"
+                                      title="{{ post.delete_block_reason if post.delete_block_reason else 'Deletion unavailable' }}">
+                                    Delete unavailable
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">
+                            {{ empty_state("No posts in this campaign") }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="post-detail-panel">
+        {% include "campaigns/tabs/post_detail.html" %}
     </div>
 </div>

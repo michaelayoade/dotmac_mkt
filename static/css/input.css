@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+    /* Dark mode boost for metric tinted backgrounds using --metric-color.
+       Inline styles set 8% in light mode; this overrides to 18% in dark. */
+    .dark [style*="--metric-color"] {
+        background-color: color-mix(in srgb, var(--metric-color) 18%, transparent) !important;
+    }
+}

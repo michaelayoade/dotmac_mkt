@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import logging
@@ -11,44 +12,26 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.responses import Response
 
+from app.adapters.registry import get_adapter
 from app.api.deps import get_db
+from app.models.ad_campaign import AdPlatform
+from app.models.channel import ChannelProvider, ChannelStatus
+from app.services.ad_dashboard_service import AdDashboardService
+from app.services.analytics_chart_service import AnalyticsChartService
 from app.services.analytics_service import AnalyticsService
 from app.services.campaign_service import CampaignService
+from app.services.channel_integration_settings import get_meta_oauth_config
 from app.services.channel_service import ChannelService
 from app.services.common import coerce_uuid
+from app.services.credential_service import CredentialService
 from app.templates import templates
 from app.web.deps import require_web_auth
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/analytics", tags=["web-analytics"])
-
-METRIC_STYLES = {
-    "impressions": ("Impressions", "#6366f1"),
-    "reach": ("Reach", "#22c55e"),
-    "clicks": ("Clicks", "#eab308"),
-    "engagement": ("Engagement", "#ef4444"),
-    "spend": ("Spend", "#0f766e"),
-    "conversions": ("Conversions", "#0891b2"),
-    "likes": ("Likes", "#db2777"),
-    "shares": ("Shares", "#7c3aed"),
-    "retweets": ("Retweets", "#2563eb"),
-    "sessions": ("Sessions", "#0ea5e9"),
-    "pageviews": ("Pageviews", "#14b8a6"),
-    "users": ("Users", "#84cc16"),
-    "bounce_rate": ("Bounce Rate", "#f97316"),
-}
-FALLBACK_COLORS = (
-    "#6366f1",
-    "#22c55e",
-    "#eab308",
-    "#ef4444",
-    "#0ea5e9",
-    "#db2777",
-    "#7c3aed",
-    "#14b8a6",
-)
 
 
 def _has_metric_data(
@@ -79,132 +62,273 @@ def _parse_uuid(value: str | None) -> UUID | None:
         return None
 
 
-def _prepare_chart_channel_metrics(
-    channel_metrics: list[dict[str, object]],
-    metric_keys: list[str],
+def _meta_ads_summary(rows: list[dict[str, object]]) -> dict[str, float]:
+    totals = {
+        "impressions": 0.0,
+        "reach": 0.0,
+        "clicks": 0.0,
+        "spend": 0.0,
+        "conversions": 0.0,
+    }
+    for row in rows:
+        for key in totals:
+            totals[key] += float(row.get(key, 0) or 0)
+    return totals
+
+
+def _recompute_meta_ads_derived_metrics(
+    rows: list[dict[str, object]],
 ) -> list[dict[str, object]]:
-    """Drop all-zero channels from visual charts to keep them readable."""
+    normalized: list[dict[str, object]] = []
+    for row in rows:
+        impressions = float(row.get("impressions", 0) or 0)
+        clicks = float(row.get("clicks", 0) or 0)
+        reach = float(row.get("reach", 0) or 0)
+        spend = float(row.get("spend", 0) or 0)
+        normalized.append(
+            {
+                **row,
+                "ctr": (clicks / impressions * 100) if impressions > 0 else 0.0,
+                "cpc": (spend / clicks) if clicks > 0 else 0.0,
+                "cpp": (spend / reach) if reach > 0 else 0.0,
+            }
+        )
+    return normalized
+
+
+def _currency_prefix(currency_code: str) -> str:
+    code = currency_code.strip().upper()
+    if not code or code == "MULTI":
+        return ""
+    return f"{code} "
+
+
+def _resolve_currency_code(rows: list[dict[str, object]], default: str = "NGN") -> str:
+    currencies = {
+        str(row.get("account_currency", "")).strip().upper()
+        for row in rows
+        if str(row.get("account_currency", "")).strip()
+    }
+    if len(currencies) == 1:
+        return next(iter(currencies))
+    if not currencies:
+        return default
+    return "MULTI"
+
+
+def _filter_meta_ads_rows(
+    rows: list[dict[str, object]], campaign: str | None
+) -> list[dict[str, object]]:
+    if not campaign or not campaign.strip():
+        return rows
+    selected = campaign.strip()
     return [
         row
-        for row in channel_metrics
-        if any(float(row["metrics"].get(metric, 0)) > 0 for metric in metric_keys)
+        for row in rows
+        if selected == str(row.get("campaign_id", "") or "")
+        or selected == str(row.get("campaign_name", "") or "")
     ]
 
 
-def _metric_style(metric_key: str, index: int = 0) -> tuple[str, str]:
-    if metric_key in METRIC_STYLES:
-        return METRIC_STYLES[metric_key]
-    return (
-        metric_key.replace("_", " ").title(),
-        FALLBACK_COLORS[index % len(FALLBACK_COLORS)],
-    )
-
-
-def _build_time_series_chart(
-    daily_rows: list[dict[str, str | float]],
-    metric_keys: list[str],
-) -> dict:
-    """Build lightweight SVG chart data for the analytics template."""
-    if not daily_rows or not metric_keys:
-        return {}
-
-    grouped: dict[str, dict[str, float]] = {}
-    for row in daily_rows:
-        grouped.setdefault(str(row["date"]), {})
-        grouped[str(row["date"])][str(row["metric_type"])] = float(row["total"])
-    dates = sorted(grouped.keys())
-
-    width = 760
-    height = 220
-    pad_x = 20
-    pad_y = 20
-    inner_width = width - (pad_x * 2)
-    inner_height = height - (pad_y * 2)
-    max_value = max(
-        max(float(grouped[d].get(metric, 0)) for metric in metric_keys) for d in dates
-    )
-    if max_value <= 0:
-        max_value = 1
-
-    point_count = len(dates)
-    denominator = max(point_count - 1, 1)
-    series = []
-    for index, metric in enumerate(metric_keys):
-        label, color = _metric_style(metric, index)
-        points = []
-        markers = []
-        for point_index, chart_date in enumerate(dates):
-            x = pad_x + (inner_width * point_index / denominator)
-            if point_count == 1:
-                x = width / 2
-            value = float(grouped[chart_date].get(metric, 0))
-            y = height - pad_y - ((value / max_value) * inner_height)
-            points.append(f"{x:.1f},{y:.1f}")
-            markers.append(
-                {
-                    "x": round(x, 1),
-                    "y": round(y, 1),
-                    "value": value,
-                    "date": chart_date,
-                }
-            )
-        series.append(
-            {
-                "key": metric,
-                "label": label,
-                "color": color,
-                "points": " ".join(points),
-                "markers": markers,
-            }
-        )
-
-    return {
-        "width": width,
-        "height": height,
-        "max_value": max_value,
-        "series": series,
-        "labels": [{"date": d, "short": d[5:]} for d in dates],
-        "grid_lines": [{"y": pad_y + (inner_height * step / 4)} for step in range(5)],
+def _ads_summary(rows: list[dict[str, object]]) -> dict[str, float]:
+    totals = {
+        "impressions": 0.0,
+        "clicks": 0.0,
+        "spend": 0.0,
+        "conversions": 0.0,
     }
+    for row in rows:
+        for key in totals:
+            totals[key] += float(row.get(key, 0) or 0)
+    return totals
 
 
-def _build_channel_strengths(
-    channel_metrics: list[dict[str, object]],
-    metric_keys: list[str],
+def _coalesce_history_rows(
+    rows: list[dict[str, object]],
+    *,
+    key_fields: tuple[str, ...],
+    metric_fields: tuple[str, ...],
 ) -> list[dict[str, object]]:
-    """Normalize per-channel metrics for a non-JS strengths view."""
-    if not channel_metrics or not metric_keys:
-        return []
-
-    maxima = {
-        metric: max(float(row["metrics"].get(metric, 0)) for row in channel_metrics)
-        or 1
-        for metric in metric_keys
-    }
-    strengths = []
-    for row in channel_metrics:
-        metrics = []
-        for index, metric in enumerate(metric_keys):
-            label, color = _metric_style(metric, index)
-            value = float(row["metrics"].get(metric, 0))
-            metrics.append(
-                {
-                    "key": metric,
-                    "label": label,
-                    "value": value,
-                    "pct": round((value / maxima[metric]) * 100)
-                    if maxima[metric]
-                    else 0,
-                    "color": color,
-                }
+    grouped: dict[tuple[str, ...], dict[str, object]] = {}
+    for row in rows:
+        key = tuple(str(row.get(field, "") or "") for field in key_fields)
+        if key not in grouped:
+            grouped[key] = dict(row)
+            continue
+        current = grouped[key]
+        for metric in metric_fields:
+            current[metric] = float(current.get(metric, 0) or 0) + float(
+                row.get(metric, 0) or 0
             )
-        strengths.append(
-            {
-                "channel_name": row.get("channel_name", "Unknown"),
-                "metrics": metrics,
-            }
+    return list(grouped.values())
+
+
+def _csv_response(
+    filename: str, headers: list[str], rows: list[dict[str, object]]
+) -> StreamingResponse:
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow([row.get(header, "") for header in headers])
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+async def _load_meta_ads_history(
+    db: Session, start_date: date, end_date: date
+) -> tuple[list[dict[str, object]], list[str], list[object]]:
+    channel_svc = ChannelService(db)
+    cred_svc = CredentialService() if CredentialService.is_configured() else None
+    meta_config = get_meta_oauth_config(db)
+    channels = [
+        channel
+        for channel in channel_svc.list_all(limit=200)
+        if channel.provider == ChannelProvider.meta_ads
+        and channel.status == ChannelStatus.connected
+    ]
+
+    history_rows: list[dict[str, object]] = []
+    errors: list[str] = []
+
+    if cred_svc is None:
+        errors.append(
+            "Encryption key is not configured, so Meta Ads credentials cannot be read."
         )
-    return strengths
+    else:
+        for channel in channels:
+            if not channel.credentials_encrypted:
+                continue
+            creds = cred_svc.decrypt(channel.credentials_encrypted)
+            if not creds:
+                errors.append(f"Could not decrypt credentials for {channel.name}.")
+                continue
+            try:
+                adapter = get_adapter(
+                    ChannelProvider.meta_ads,
+                    access_token=creds.get("access_token", ""),
+                    account_id=creds.get("account_id")
+                    or channel.external_account_id
+                    or "",
+                    client_id=meta_config.app_id,
+                    client_secret=meta_config.app_secret,
+                    graph_version=meta_config.graph_version,
+                    timeout_seconds=meta_config.api_timeout_seconds,
+                )
+                rows = await adapter.fetch_ads_history(start_date, end_date)
+            except (ValueError, RuntimeError) as exc:
+                logger.error("Meta Ads page fetch failed for %s: %s", channel.name, exc)
+                errors.append(f"Could not load ads history for {channel.name}.")
+                continue
+
+            for row in rows:
+                history_rows.append(
+                    {
+                        **row,
+                        "channel_name": channel.name,
+                        "account_id": channel.external_account_id or "",
+                    }
+                )
+
+    history_rows = _coalesce_history_rows(
+        history_rows,
+        key_fields=(
+            "account_id",
+            "date_start",
+            "campaign_id",
+            "adset_id",
+            "ad_id",
+        ),
+        metric_fields=("impressions", "reach", "clicks", "spend", "conversions"),
+    )
+    history_rows = _recompute_meta_ads_derived_metrics(history_rows)
+    history_rows.sort(
+        key=lambda item: (
+            str(item.get("date_start", "")),
+            str(item.get("campaign_name", "")),
+            str(item.get("ad_name", "")),
+        ),
+        reverse=True,
+    )
+    return history_rows, errors, channels
+
+
+async def _load_google_ads_history(
+    db: Session, start_date: date, end_date: date
+) -> tuple[list[dict[str, object]], list[str], list[object]]:
+    channel_svc = ChannelService(db)
+    cred_svc = CredentialService() if CredentialService.is_configured() else None
+    channels = [
+        channel
+        for channel in channel_svc.list_all(limit=200)
+        if channel.provider == ChannelProvider.google_ads
+        and channel.status == ChannelStatus.connected
+    ]
+
+    history_rows: list[dict[str, object]] = []
+    errors: list[str] = []
+
+    if cred_svc is None:
+        errors.append(
+            "Encryption key is not configured, so Google Ads credentials cannot be read."
+        )
+    else:
+        for channel in channels:
+            if not channel.credentials_encrypted:
+                continue
+            creds = cred_svc.decrypt(channel.credentials_encrypted)
+            if not creds:
+                errors.append(f"Could not decrypt credentials for {channel.name}.")
+                continue
+            try:
+                adapter = get_adapter(
+                    ChannelProvider.google_ads,
+                    access_token=creds.get("access_token", ""),
+                    customer_id=creds.get("customer_id")
+                    or channel.external_account_id
+                    or "",
+                    developer_token=creds.get("developer_token", ""),
+                )
+                rows = await adapter.fetch_ads_history(start_date, end_date)
+            except (ValueError, RuntimeError) as exc:
+                logger.error(
+                    "Google Ads page fetch failed for %s: %s", channel.name, exc
+                )
+                errors.append(f"Could not load Google Ads history for {channel.name}.")
+                continue
+
+            for row in rows:
+                history_rows.append(
+                    {
+                        **row,
+                        "channel_name": channel.name,
+                        "customer_id": channel.external_account_id or "",
+                    }
+                )
+
+    history_rows = _coalesce_history_rows(
+        history_rows,
+        key_fields=(
+            "customer_id",
+            "date_start",
+            "campaign_id",
+            "ad_group_id",
+            "ad_id",
+        ),
+        metric_fields=("impressions", "clicks", "spend", "conversions"),
+    )
+    history_rows.sort(
+        key=lambda item: (
+            str(item.get("date_start", "")),
+            str(item.get("campaign_name", "")),
+            str(item.get("ad_name", "")),
+        ),
+        reverse=True,
+    )
+    return history_rows, errors, channels
 
 
 @router.get("", response_class=HTMLResponse)
@@ -280,6 +404,7 @@ def analytics_overview(
             ch.id,
             start_date=d_start,
             end_date=d_end,
+            post_id=selected_post_id,
             metric_date=d_metric,
         )
         totals: dict[str, float] = {}
@@ -302,13 +427,13 @@ def analytics_overview(
     active_metric_keys = [
         key for key, total in overview.items() if float(total) > 0
     ] or sorted(available_metric_keys)
-    chart_channel_metrics = _prepare_chart_channel_metrics(
+    chart_channel_metrics = AnalyticsChartService.prepare_chart_channel_metrics(
         visual_channel_metrics, active_metric_keys
     )
-    time_series_chart = _build_time_series_chart(
+    time_series_chart = AnalyticsChartService.build_time_series_chart(
         daily_metric_breakdown, active_metric_keys
     )
-    channel_strengths = _build_channel_strengths(
+    channel_strengths = AnalyticsChartService.build_channel_strengths(
         chart_channel_metrics, active_metric_keys
     )
     post_filter_options = analytics_svc.get_post_filter_options(
@@ -460,10 +585,299 @@ def campaign_analytics(
     return templates.TemplateResponse("analytics/campaign.html", ctx)
 
 
+@router.get("/meta-ads", response_class=HTMLResponse)
+async def meta_ads_analytics(
+    request: Request,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    campaign: str | None = None,
+    page: int = 1,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> HTMLResponse:
+    """Detailed Meta Ads history across connected Meta ad accounts."""
+    today = date.today()
+    d_start = _parse_date(start_date, today - timedelta(days=30))
+    d_end = _parse_date(end_date, today)
+
+    history_rows, errors, channels = await _load_meta_ads_history(db, d_start, d_end)
+    campaign_options = sorted(
+        {
+            (
+                str(row.get("campaign_id", "") or ""),
+                str(row.get("campaign_name", "") or "Unlabeled campaign"),
+            )
+            for row in history_rows
+        },
+        key=lambda item: item[1].lower(),
+    )
+    history_rows = _filter_meta_ads_rows(history_rows, campaign)
+    totals = _meta_ads_summary(history_rows)
+    currency_code = _resolve_currency_code(history_rows, default="NGN")
+    currency_prefix = _currency_prefix(currency_code)
+
+    campaign_totals: dict[tuple[str, str], dict[str, float | str]] = {}
+    for row in history_rows:
+        key = (str(row.get("channel_name", "")), str(row.get("campaign_name", "")))
+        if key not in campaign_totals:
+            campaign_totals[key] = {
+                "channel_name": key[0],
+                "campaign_name": key[1] or "Unlabeled campaign",
+                "impressions": 0.0,
+                "reach": 0.0,
+                "clicks": 0.0,
+                "spend": 0.0,
+                "conversions": 0.0,
+            }
+        for metric in ("impressions", "reach", "clicks", "spend", "conversions"):
+            campaign_totals[key][metric] = float(campaign_totals[key][metric]) + float(
+                row.get(metric, 0) or 0
+            )
+        campaign_totals[key]["account_currency"] = currency_code
+
+    account_totals: dict[tuple[str, str], dict[str, float | str]] = {}
+    for row in history_rows:
+        key = (str(row.get("channel_name", "")), str(row.get("account_id", "")))
+        if key not in account_totals:
+            account_totals[key] = {
+                "channel_name": key[0],
+                "account_id": key[1],
+                "impressions": 0.0,
+                "reach": 0.0,
+                "clicks": 0.0,
+                "spend": 0.0,
+                "conversions": 0.0,
+            }
+        for metric in ("impressions", "reach", "clicks", "spend", "conversions"):
+            account_totals[key][metric] = float(account_totals[key][metric]) + float(
+                row.get(metric, 0) or 0
+            )
+        account_totals[key]["account_currency"] = currency_code
+
+    page_size = 50
+    total_rows = len(history_rows)
+    total_pages = max(1, (total_rows + page_size - 1) // page_size)
+    current_page = min(max(page, 1), total_pages)
+    start_index = (current_page - 1) * page_size
+    paginated_history_rows = history_rows[start_index : start_index + page_size]
+
+    ctx = {
+        "request": request,
+        "title": "Meta Ads",
+        "page_title": "Meta Ads",
+        "start_date": d_start.isoformat(),
+        "end_date": d_end.isoformat(),
+        "today_iso": today.isoformat(),
+        "selected_campaign": campaign or "",
+        "campaign_options": [
+            {"value": campaign_id or campaign_name, "label": campaign_name}
+            for campaign_id, campaign_name in campaign_options
+        ],
+        "channels": channels,
+        "errors": errors,
+        "history_rows": paginated_history_rows,
+        "account_rows": sorted(
+            account_totals.values(),
+            key=lambda item: (str(item["channel_name"]), str(item["account_id"])),
+        ),
+        "campaign_rows": sorted(
+            campaign_totals.values(),
+            key=lambda item: float(item["spend"]),
+            reverse=True,
+        ),
+        "total_impressions": int(totals["impressions"]),
+        "total_reach": int(totals["reach"]),
+        "total_clicks": int(totals["clicks"]),
+        "total_spend": float(totals["spend"]),
+        "total_conversions": float(totals["conversions"]),
+        "currency_code": currency_code,
+        "currency_prefix": currency_prefix,
+        "page": current_page,
+        "page_size": page_size,
+        "total_rows": total_rows,
+        "total_pages": total_pages,
+        "has_prev_page": current_page > 1,
+        "has_next_page": current_page < total_pages,
+        "prev_page": current_page - 1,
+        "next_page": current_page + 1,
+    }
+    return templates.TemplateResponse("analytics/meta_ads.html", ctx)
+
+
+@router.get("/meta-ads/export")
+async def export_meta_ads_csv(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    campaign: str | None = None,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> StreamingResponse:
+    today = date.today()
+    d_start = _parse_date(start_date, today - timedelta(days=30))
+    d_end = _parse_date(end_date, today)
+    history_rows, _, _ = await _load_meta_ads_history(db, d_start, d_end)
+    history_rows = _filter_meta_ads_rows(history_rows, campaign)
+    export_rows = [
+        {
+            "date_start": row.get("date_start", ""),
+            "channel_name": row.get("channel_name", ""),
+            "account_id": row.get("account_id", ""),
+            "account_currency": row.get("account_currency", ""),
+            "campaign_name": row.get("campaign_name", ""),
+            "campaign_id": row.get("campaign_id", ""),
+            "adset_name": row.get("adset_name", ""),
+            "adset_id": row.get("adset_id", ""),
+            "ad_name": row.get("ad_name", ""),
+            "ad_id": row.get("ad_id", ""),
+            "impressions": int(float(row.get("impressions", 0) or 0)),
+            "reach": int(float(row.get("reach", 0) or 0)),
+            "clicks": int(float(row.get("clicks", 0) or 0)),
+            "ctr": round(float(row.get("ctr", 0) or 0), 2),
+            "spend": round(float(row.get("spend", 0) or 0), 2),
+            "conversions": round(float(row.get("conversions", 0) or 0), 2),
+        }
+        for row in history_rows
+    ]
+    return _csv_response(
+        f"meta_ads_{d_start}_{d_end}.csv",
+        [
+            "date_start",
+            "channel_name",
+            "account_id",
+            "account_currency",
+            "campaign_name",
+            "campaign_id",
+            "adset_name",
+            "adset_id",
+            "ad_name",
+            "ad_id",
+            "impressions",
+            "reach",
+            "clicks",
+            "ctr",
+            "spend",
+            "conversions",
+        ],
+        export_rows,
+    )
+
+
+@router.get("/google-ads", response_class=HTMLResponse)
+async def google_ads_analytics(
+    request: Request,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> HTMLResponse:
+    """Detailed Google Ads history across connected customer accounts."""
+    today = date.today()
+    d_start = _parse_date(start_date, today - timedelta(days=30))
+    d_end = _parse_date(end_date, today)
+
+    history_rows, errors, channels = await _load_google_ads_history(db, d_start, d_end)
+    totals = _ads_summary(history_rows)
+
+    campaign_totals: dict[tuple[str, str], dict[str, float | str]] = {}
+    for row in history_rows:
+        key = (str(row.get("channel_name", "")), str(row.get("campaign_name", "")))
+        if key not in campaign_totals:
+            campaign_totals[key] = {
+                "channel_name": key[0],
+                "campaign_name": key[1] or "Unlabeled campaign",
+                "impressions": 0.0,
+                "clicks": 0.0,
+                "spend": 0.0,
+                "conversions": 0.0,
+            }
+        for metric in ("impressions", "clicks", "spend", "conversions"):
+            campaign_totals[key][metric] = float(campaign_totals[key][metric]) + float(
+                row.get(metric, 0) or 0
+            )
+
+    ctx = {
+        "request": request,
+        "title": "Google Ads",
+        "page_title": "Google Ads",
+        "start_date": d_start.isoformat(),
+        "end_date": d_end.isoformat(),
+        "today_iso": today.isoformat(),
+        "channels": channels,
+        "errors": errors,
+        "history_rows": history_rows,
+        "campaign_rows": sorted(
+            campaign_totals.values(),
+            key=lambda item: float(item["spend"]),
+            reverse=True,
+        ),
+        "total_impressions": int(totals["impressions"]),
+        "total_clicks": int(totals["clicks"]),
+        "total_spend": float(totals["spend"]),
+        "total_conversions": float(totals["conversions"]),
+    }
+    return templates.TemplateResponse("analytics/google_ads.html", ctx)
+
+
+@router.get("/google-ads/export")
+async def export_google_ads_csv(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> StreamingResponse:
+    today = date.today()
+    d_start = _parse_date(start_date, today - timedelta(days=30))
+    d_end = _parse_date(end_date, today)
+    history_rows, _, _ = await _load_google_ads_history(db, d_start, d_end)
+    export_rows = [
+        {
+            "date_start": row.get("date_start", ""),
+            "channel_name": row.get("channel_name", ""),
+            "customer_id": row.get("customer_id", ""),
+            "campaign_name": row.get("campaign_name", ""),
+            "campaign_id": row.get("campaign_id", ""),
+            "ad_group_name": row.get("ad_group_name", ""),
+            "ad_group_id": row.get("ad_group_id", ""),
+            "ad_name": row.get("ad_name", ""),
+            "ad_id": row.get("ad_id", ""),
+            "impressions": int(float(row.get("impressions", 0) or 0)),
+            "clicks": int(float(row.get("clicks", 0) or 0)),
+            "ctr": round(float(row.get("ctr", 0) or 0), 2),
+            "average_cpc": round(float(row.get("average_cpc", 0) or 0), 2),
+            "spend": round(float(row.get("spend", 0) or 0), 2),
+            "conversions": round(float(row.get("conversions", 0) or 0), 2),
+        }
+        for row in history_rows
+    ]
+    return _csv_response(
+        f"google_ads_{d_start}_{d_end}.csv",
+        [
+            "date_start",
+            "channel_name",
+            "customer_id",
+            "campaign_name",
+            "campaign_id",
+            "ad_group_name",
+            "ad_group_id",
+            "ad_name",
+            "ad_id",
+            "impressions",
+            "clicks",
+            "ctr",
+            "average_cpc",
+            "spend",
+            "conversions",
+        ],
+        export_rows,
+    )
+
+
 @router.get("/export")
 def export_metrics_csv(
     start_date: str | None = None,
     end_date: str | None = None,
+    metric_date: str | None = None,
+    post_id: str | None = None,
     db: Session = Depends(get_db),
     auth: dict = Depends(require_web_auth),
 ) -> StreamingResponse:
@@ -471,40 +885,149 @@ def export_metrics_csv(
     today = date.today()
     d_start = _parse_date(start_date, today - timedelta(days=30))
     d_end = _parse_date(end_date, today)
+    d_metric = _parse_date(metric_date, d_end) if metric_date else None
+    selected_post_id = _parse_uuid(post_id)
 
-    # Fetch all channel metrics for the range
-    from sqlalchemy import select
-
-    from app.models.channel_metric import ChannelMetric
-
-    stmt = (
-        select(ChannelMetric)
-        .where(ChannelMetric.metric_date >= d_start)
-        .where(ChannelMetric.metric_date <= d_end)
-        .order_by(ChannelMetric.metric_date, ChannelMetric.channel_id)
+    chart_svc = AnalyticsChartService(db)
+    csv_content = chart_svc.export_csv(
+        start_date=d_start,
+        end_date=d_end,
+        metric_date=d_metric,
+        post_id=selected_post_id,
     )
-    metrics = list(db.scalars(stmt).all())
-
-    # Build CSV in memory
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["date", "channel_id", "post_id", "metric_type", "value"])
-    for m in metrics:
-        writer.writerow(
-            [
-                m.metric_date.isoformat(),
-                str(m.channel_id),
-                str(m.post_id) if m.post_id else "",
-                m.metric_type.value,
-                str(float(m.value)),
-            ]
-        )
-
-    output.seek(0)
     filename = f"analytics_{d_start}_{d_end}.csv"
 
     return StreamingResponse(
-        iter([output.getvalue()]),
+        iter([csv_content]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Unified Ads Dashboard ───────────────────────────────────────────────────
+
+PLATFORM_DISPLAY = {
+    "meta": "Meta Ads",
+    "google": "Google Ads",
+    "linkedin": "LinkedIn Ads",
+}
+
+
+@router.get("/ads", response_class=HTMLResponse)
+def ads_dashboard(
+    request: Request,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    platform: str | None = None,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> HTMLResponse:
+    """Unified ads dashboard across all platforms, reading from local DB."""
+    today = date.today()
+    d_start = _parse_date(start_date, today - timedelta(days=30))
+    d_end = _parse_date(end_date, today)
+
+    platform_filter: AdPlatform | None = None
+    if platform:
+        with contextlib.suppress(ValueError):
+            platform_filter = AdPlatform(platform)
+
+    ad_svc = AdDashboardService(db)
+    overview = ad_svc.get_overview(start_date=d_start, end_date=d_end)
+    platform_summary = ad_svc.get_platform_summary(start_date=d_start, end_date=d_end)
+    campaigns = ad_svc.get_campaigns(
+        platform=platform_filter, start_date=d_start, end_date=d_end
+    )
+    daily_totals = ad_svc.get_daily_totals(
+        platform=platform_filter, start_date=d_start, end_date=d_end
+    )
+
+    # Enrich platform display names
+    for ps in platform_summary:
+        ps["display_name"] = PLATFORM_DISPLAY.get(ps["platform"], ps["platform"])
+    for c in campaigns:
+        c["platform_display"] = PLATFORM_DISPLAY.get(c["platform"], c["platform"])
+
+    ctx = {
+        "request": request,
+        "title": "All Ads",
+        "start_date": d_start.isoformat(),
+        "end_date": d_end.isoformat(),
+        "today_iso": today.isoformat(),
+        "selected_platform": platform or "",
+        "platforms": [
+            {"value": p.value, "label": PLATFORM_DISPLAY.get(p.value, p.value)}
+            for p in AdPlatform
+        ],
+        "overview": overview,
+        "platform_summary": platform_summary,
+        "campaigns": campaigns,
+        "daily_totals": daily_totals,
+    }
+    return templates.TemplateResponse("analytics/ads_dashboard.html", ctx)
+
+
+@router.get("/ads/{ad_campaign_id}", response_class=HTMLResponse)
+def ad_campaign_detail(
+    request: Request,
+    ad_campaign_id: UUID,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> Response:
+    """Drill-down into a single ad campaign."""
+    today = date.today()
+    d_start = _parse_date(start_date, today - timedelta(days=30))
+    d_end = _parse_date(end_date, today)
+
+    ad_svc = AdDashboardService(db)
+    detail = ad_svc.get_campaign_detail(
+        ad_campaign_id, start_date=d_start, end_date=d_end
+    )
+    if detail is None:
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(
+            url="/analytics/ads?error=Ad+campaign+not+found", status_code=302
+        )
+
+    detail["campaign"]["platform_display"] = PLATFORM_DISPLAY.get(
+        detail["campaign"]["platform"], detail["campaign"]["platform"]
+    )
+
+    ctx = {
+        "request": request,
+        "title": f"Ad Campaign — {detail['campaign']['name']}",
+        "start_date": d_start.isoformat(),
+        "end_date": d_end.isoformat(),
+        "detail": detail,
+    }
+    return templates.TemplateResponse("analytics/ad_campaign_detail.html", ctx)
+
+
+@router.post("/ads/{ad_campaign_id}/link", response_model=None)
+async def link_ad_campaign(
+    request: Request,
+    ad_campaign_id: UUID,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> Response:
+    """Link or unlink an ad campaign to an internal Campaign."""
+    from fastapi.responses import RedirectResponse
+
+    form = await request.form()
+    campaign_id = _parse_uuid(str(form.get("campaign_id", "")).strip())
+
+    ad_svc = AdDashboardService(db)
+    try:
+        ad_svc.link_to_campaign(ad_campaign_id, campaign_id)
+        db.commit()
+    except ValueError:
+        return RedirectResponse(
+            url="/analytics/ads?error=Ad+campaign+not+found", status_code=302
+        )
+
+    return RedirectResponse(
+        url=f"/analytics/ads/{ad_campaign_id}?success=Link+updated", status_code=302
     )

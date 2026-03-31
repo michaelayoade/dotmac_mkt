@@ -273,13 +273,11 @@
     <div id="toast-container"
          x-data="toastStore"
          x-on:show-toast.window="addToast($event.detail)"
-         role="status"
-         aria-live="polite"
-         aria-atomic="false"
-         aria-relevant="additions"
          class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         <template x-for="toast in toasts" :key="toast.id">
             <div x-show="toast.visible"
+                 :role="isError(toast) || isWarning(toast) ? 'alert' : 'status'"
+                 :aria-live="toast.ariaLive || 'polite'"
                  x-transition:enter="transform ease-out duration-300"
                  x-transition:enter-start="translate-y-2 opacity-0"
                  x-transition:enter-end="translate-y-0 opacity-100"

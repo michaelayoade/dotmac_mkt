@@ -6,7 +6,8 @@ import hashlib
 import logging
 import secrets
 from base64 import urlsafe_b64encode
-from urllib.parse import urlencode
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode, urlsplit, urlunsplit
 from uuid import UUID
 
 import httpx
@@ -24,6 +25,7 @@ from app.schemas.channel import ChannelCreate
 from app.services.channel_integration_settings import get_meta_oauth_config
 from app.services.channel_service import ChannelService
 from app.services.credential_service import CredentialService
+from app.services.marketing_runtime import get_marketing_value
 from app.templates import templates
 from app.web.deps import require_web_auth
 
@@ -31,9 +33,42 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/channels", tags=["web-channels"])
 
+
+def _canonicalize_url(url: str) -> str:
+    parts = urlsplit(url)
+    scheme = (settings.canonical_scheme or parts.scheme or "https").strip()
+    host = (settings.canonical_host or parts.netloc).strip()
+    if not host:
+        host = parts.netloc
+    return urlunsplit((scheme, host, parts.path, parts.query, parts.fragment))
+
+
+def _external_redirect_response(url: str) -> HTMLResponse:
+    escaped = (
+        url.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+    return HTMLResponse(
+        content=(
+            "<!doctype html><html><head>"
+            f'<meta http-equiv="refresh" content="0;url={escaped}">'
+            '<meta name="referrer" content="no-referrer">'
+            "<title>Redirecting...</title>"
+            "</head><body>"
+            f"<script>window.location.replace({url!r});</script>"
+            f'<p>Redirecting to OAuth provider. If nothing happens, <a href="{escaped}">continue here</a>.</p>'
+            "</body></html>"
+        ),
+        status_code=200,
+    )
+
+
 _PROVIDER_KEY_MAP: dict[str, str] = {
     "meta_instagram": "account_id",
     "meta_facebook": "account_id",
+    "meta_ads": "account_id",
     "twitter": "account_id",
     "linkedin": "organization_id",
     "google_ads": "customer_id",
@@ -43,6 +78,7 @@ _PROVIDER_KEY_MAP: dict[str, str] = {
 _PROVIDER_LABELS: dict[str, str] = {
     "meta_instagram": "Instagram account ID",
     "meta_facebook": "Facebook page ID",
+    "meta_ads": "Meta ad account ID",
     "twitter": "X account ID",
     "linkedin": "LinkedIn organization ID",
     "google_ads": "Google Ads customer ID",
@@ -52,6 +88,7 @@ _PROVIDER_LABELS: dict[str, str] = {
 _PROVIDER_PLACEHOLDERS: dict[str, str] = {
     "meta_instagram": "17841400000000000",
     "meta_facebook": "123456789012345",
+    "meta_ads": "123456789012345",
     "twitter": "2244994945",
     "linkedin": "12345678",
     "google_ads": "1234567890",
@@ -63,6 +100,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     for provider, label in (
         (ChannelProvider.meta_instagram, _PROVIDER_LABELS["meta_instagram"]),
         (ChannelProvider.meta_facebook, _PROVIDER_LABELS["meta_facebook"]),
+        (ChannelProvider.meta_ads, _PROVIDER_LABELS["meta_ads"]),
         (ChannelProvider.twitter, _PROVIDER_LABELS["twitter"]),
         (ChannelProvider.linkedin, _PROVIDER_LABELS["linkedin"]),
         (ChannelProvider.google_ads, _PROVIDER_LABELS["google_ads"]),
@@ -73,9 +111,11 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
 _META_PROVIDER_VALUES = {
     ChannelProvider.meta_facebook.value,
     ChannelProvider.meta_instagram.value,
+    ChannelProvider.meta_ads.value,
 }
 _META_COMBINED_SCOPE = (
-    "pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights"
+    "pages_show_list,pages_read_engagement,instagram_basic,"
+    "instagram_manage_insights,ads_read,business_management"
 )
 
 
@@ -234,6 +274,33 @@ def _store_channel_connection(
     return channel
 
 
+def _resolve_manual_provider(
+    provider: str, external_account_id: str, db: Session
+) -> ChannelProvider:
+    if provider != "meta":
+        return ChannelProvider(provider)
+
+    account_id = external_account_id.strip()
+    if account_id:
+        existing = db.scalar(
+            select(Channel.provider).where(
+                Channel.provider.in_(
+                    [ChannelProvider.meta_facebook, ChannelProvider.meta_instagram]
+                ),
+                Channel.external_account_id == account_id,
+            )
+        )
+        if existing is not None:
+            return existing
+
+    # Instagram business account IDs commonly begin with 1784 and are longer
+    # than Facebook page IDs, which makes this a practical fallback when the
+    # user submits the combined `meta` provider.
+    if account_id.startswith("1784") or len(account_id) >= 16:
+        return ChannelProvider.meta_instagram
+    return ChannelProvider.meta_facebook
+
+
 async def _discover_meta_assets(
     access_token: str,
     *,
@@ -255,6 +322,21 @@ async def _discover_meta_assets(
     except httpx.HTTPError as exc:
         logger.error("Meta asset discovery failed: %s", exc)
         return []
+
+    ad_accounts_data: dict[str, object] = {"data": []}
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            ad_accounts_response = await client.get(
+                f"{graph_api}/me/adaccounts",
+                params={
+                    "fields": "id,account_id,name,account_status,currency",
+                    "access_token": access_token,
+                },
+            )
+            ad_accounts_response.raise_for_status()
+            ad_accounts_data = ad_accounts_response.json()
+    except httpx.HTTPError as exc:
+        logger.warning("Meta ad account discovery skipped: %s", exc)
 
     assets: list[dict[str, str]] = []
     for page in data.get("data", []):
@@ -286,6 +368,21 @@ async def _discover_meta_assets(
                     "access_token": page_token,
                 }
             )
+
+    for account in ad_accounts_data.get("data", []):
+        raw_account_id = str(
+            account.get("account_id") or account.get("id") or ""
+        ).strip()
+        if not raw_account_id:
+            continue
+        assets.append(
+            {
+                "provider": ChannelProvider.meta_ads.value,
+                "external_account_id": raw_account_id.removeprefix("act_"),
+                "name": str(account.get("name", "")).strip() or "Meta Ad Account",
+                "access_token": access_token,
+            }
+        )
     return assets
 
 
@@ -293,6 +390,7 @@ async def _discover_meta_assets(
 _OAUTH_URLS: dict[str, str] = {
     "meta_instagram": "https://www.facebook.com/v19.0/dialog/oauth",
     "meta_facebook": "https://www.facebook.com/v19.0/dialog/oauth",
+    "meta_ads": "https://www.facebook.com/v19.0/dialog/oauth",
     "twitter": "https://twitter.com/i/oauth2/authorize",
     "linkedin": "https://www.linkedin.com/oauth/v2/authorization",
     "google_ads": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -303,21 +401,30 @@ _OAUTH_URLS: dict[str, str] = {
 _OAUTH_SCOPES: dict[str, str] = {
     "meta_instagram": "pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights",
     "meta_facebook": "pages_show_list,pages_read_engagement",
+    "meta_ads": "ads_read,business_management",
     "twitter": "tweet.read users.read offline.access",
     "linkedin": "r_liteprofile r_ads_reporting",
-    "google_ads": "https://www.googleapis.com/auth/adwords",
-    "google_analytics": "https://www.googleapis.com/auth/analytics.readonly",
+    "google_ads": "https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly",
+    "google_analytics": "https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly",
 }
 
-# Client ID settings lookup
-_CLIENT_IDS: dict[str, str] = {
-    "meta_instagram": settings.meta_app_id,
-    "meta_facebook": settings.meta_app_id,
-    "twitter": settings.twitter_client_id,
-    "linkedin": settings.linkedin_client_id,
-    "google_ads": settings.google_ads_client_id,
-    "google_analytics": settings.google_analytics_client_id,
-}
+
+def _client_id_for_provider(provider: str, db: Session | None = None) -> str:
+    if provider in _META_PROVIDER_VALUES:
+        if db is not None:
+            return get_meta_oauth_config(db).app_id
+        return get_marketing_value("meta_app_id")
+
+    provider_keys = {
+        "twitter": "twitter_client_id",
+        "linkedin": "linkedin_client_id",
+        "google_ads": "google_ads_client_id",
+        "google_analytics": "google_analytics_client_id",
+    }
+    key = provider_keys.get(provider)
+    if not key:
+        return ""
+    return get_marketing_value(key, db)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -404,6 +511,7 @@ def create_channel_form(
 @router.post("/create", response_model=None)
 async def create_channel_submit(
     request: Request,
+    db: Session = Depends(get_db),
     auth: dict = Depends(require_web_auth),
 ) -> RedirectResponse | HTMLResponse:
     form = await request.form()
@@ -411,9 +519,7 @@ async def create_channel_submit(
     external_account_id = str(form.get("external_account_id", "")).strip()
 
     if provider == "meta":
-        return RedirectResponse(
-            url=str(request.url_for("meta_connect")), status_code=302
-        )
+        return _build_meta_oauth_redirect(request, db)
 
     try:
         provider_enum = ChannelProvider(provider)
@@ -448,7 +554,9 @@ async def create_channel_submit(
         )
         return templates.TemplateResponse("channels/create.html", ctx, status_code=400)
 
-    redirect_url = str(request.url_for("initiate_oauth", provider=provider_enum.value))
+    redirect_url = _canonicalize_url(
+        str(request.url_for("initiate_oauth", provider=provider_enum.value))
+    )
     if external_account_id:
         redirect_url = (
             f"{redirect_url}?{urlencode({'external_account_id': external_account_id})}"
@@ -456,12 +564,7 @@ async def create_channel_submit(
     return RedirectResponse(url=redirect_url, status_code=302)
 
 
-@router.get("/meta/connect", response_model=None, name="meta_connect")
-def initiate_meta_oauth(
-    request: Request,
-    db: Session = Depends(get_db),
-    auth: dict = Depends(require_web_auth),
-) -> RedirectResponse:
+def _build_meta_oauth_redirect(request: Request, db: Session) -> RedirectResponse:
     meta_config = get_meta_oauth_config(db)
     if not meta_config.app_id or not meta_config.app_secret:
         return RedirectResponse(
@@ -470,7 +573,7 @@ def initiate_meta_oauth(
         )
 
     serializer = _get_serializer()
-    callback_url = str(request.url_for("meta_callback"))
+    callback_url = _canonicalize_url(str(request.url_for("meta_callback")))
     state_payload = {"provider": "meta"}
     state = serializer.dumps(state_payload)
     params = {
@@ -481,7 +584,7 @@ def initiate_meta_oauth(
         "state": state,
     }
     redirect_url = f"{_OAUTH_URLS['meta_facebook']}?{urlencode(params)}"
-    response = RedirectResponse(url=redirect_url, status_code=302)
+    response = _external_redirect_response(redirect_url)
     response.set_cookie(
         key="oauth_state",
         value=state,
@@ -490,6 +593,15 @@ def initiate_meta_oauth(
         samesite="lax",
     )
     return response
+
+
+@router.get("/meta/connect", response_model=None, name="meta_connect")
+def initiate_meta_oauth(
+    request: Request,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> RedirectResponse:
+    return _build_meta_oauth_redirect(request, db)
 
 
 @router.get("/meta/callback", response_model=None, name="meta_callback")
@@ -530,7 +642,7 @@ async def meta_oauth_callback(
             status_code=302,
         )
 
-    callback_url = str(request.url_for("meta_callback"))
+    callback_url = _canonicalize_url(str(request.url_for("meta_callback")))
     try:
         adapter = get_adapter(
             ChannelProvider.meta_facebook,
@@ -623,6 +735,7 @@ def meta_webhook_verify(
 def initiate_oauth(
     request: Request,
     provider: str,
+    db: Session = Depends(get_db),
     auth: dict = Depends(require_web_auth),
 ) -> RedirectResponse:
     """Initiate OAuth flow for a channel provider."""
@@ -633,12 +746,10 @@ def initiate_oauth(
         return RedirectResponse(url="/channels?error=Unknown+provider", status_code=302)
 
     if provider in _META_PROVIDER_VALUES:
-        return RedirectResponse(
-            url=str(request.url_for("meta_connect")), status_code=302
-        )
+        return _build_meta_oauth_redirect(request, db)
 
     oauth_url = _OAUTH_URLS.get(provider)
-    client_id = _CLIENT_IDS.get(provider, "")
+    client_id = _client_id_for_provider(provider, db)
     scopes = _OAUTH_SCOPES.get(provider, "")
 
     if not oauth_url or not client_id:
@@ -648,7 +759,9 @@ def initiate_oauth(
 
     # Generate signed state token (includes PKCE verifier for Twitter)
     serializer = _get_serializer()
-    callback_url = str(request.url_for("oauth_callback", provider=provider))
+    callback_url = _canonicalize_url(
+        str(request.url_for("oauth_callback", provider=provider))
+    )
     requested_external_account_id = request.query_params.get(
         "external_account_id", ""
     ).strip()
@@ -664,6 +777,11 @@ def initiate_oauth(
         "response_type": "code",
         "state": "",  # placeholder, set below
     }
+
+    if provider in {"google_ads", "google_analytics"}:
+        params["access_type"] = "offline"
+        params["prompt"] = "consent"
+        params["include_granted_scopes"] = "true"
 
     # Twitter requires PKCE (RFC 7636)
     if provider == "twitter":
@@ -682,7 +800,7 @@ def initiate_oauth(
 
     redirect_url = f"{oauth_url}?{urlencode(params)}"
 
-    response = RedirectResponse(url=redirect_url, status_code=302)
+    response = _external_redirect_response(redirect_url)
     response.set_cookie(
         key="oauth_state",
         value=state,
@@ -691,6 +809,26 @@ def initiate_oauth(
         samesite="lax",
     )
     return response
+
+
+@router.post("/{provider}/connect", response_model=None)
+async def initiate_oauth_post(
+    request: Request,
+    provider: str,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_web_auth),
+) -> RedirectResponse:
+    form = await request.form()
+    external_account_id = str(form.get("external_account_id", "")).strip()
+
+    redirect_url = _canonicalize_url(
+        str(request.url_for("initiate_oauth", provider=provider))
+    )
+    if external_account_id:
+        redirect_url = (
+            f"{redirect_url}?{urlencode({'external_account_id': external_account_id})}"
+        )
+    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 @router.get("/{provider}/callback", response_model=None)
@@ -741,6 +879,7 @@ async def oauth_callback(
     _provider_key_map: dict[str, str] = {
         "meta_instagram": "account_id",
         "meta_facebook": "account_id",
+        "meta_ads": "account_id",
         "twitter": "account_id",
         "linkedin": "organization_id",
         "google_ads": "customer_id",
@@ -749,7 +888,9 @@ async def oauth_callback(
     extra_key = _provider_key_map.get(provider, "account_id")
     _adapter_kwargs[extra_key] = ""
 
-    callback_url = str(request.url_for("oauth_callback", provider=provider))
+    callback_url = _canonicalize_url(
+        str(request.url_for("oauth_callback", provider=provider))
+    )
     code_verifier = payload.get("code_verifier")
 
     try:
@@ -799,6 +940,11 @@ async def oauth_callback(
     token_data = _merge_token_data_with_account_id(
         provider, token_data, external_account_id
     )
+    expires_in = token_data.get("expires_in")
+    if expires_in and not token_data.get("expires_at"):
+        token_data["expires_at"] = (
+            datetime.now(UTC) + timedelta(seconds=int(expires_in))
+        ).isoformat()
     encrypted = cred_svc.encrypt(token_data)
 
     channel_svc.store_credentials(channel.id, encrypted)
@@ -827,14 +973,13 @@ async def manual_connect_channel(
     auth: dict = Depends(require_web_auth),
 ) -> RedirectResponse:
     try:
-        provider_enum = ChannelProvider(provider)
+        form = await request.form()
+        access_token = str(form.get("access_token", "")).strip()
+        refresh_token = str(form.get("refresh_token", "")).strip()
+        external_account_id = str(form.get("external_account_id", "")).strip()
+        provider_enum = _resolve_manual_provider(provider, external_account_id, db)
     except ValueError:
         return RedirectResponse(url="/channels?error=Unknown+provider", status_code=302)
-
-    form = await request.form()
-    access_token = str(form.get("access_token", "")).strip()
-    refresh_token = str(form.get("refresh_token", "")).strip()
-    external_account_id = str(form.get("external_account_id", "")).strip()
 
     if not access_token:
         return RedirectResponse(
@@ -845,9 +990,26 @@ async def manual_connect_channel(
             url="/channels?error=External+account+ID+is+required", status_code=302
         )
 
-    token_data = {"access_token": access_token}
+    token_data = {"access_token": access_token, "manual_token": True}
     if refresh_token:
         token_data["refresh_token"] = refresh_token
+
+    adapter_kwargs: dict[str, str] = {"access_token": access_token}
+    provider_key = _PROVIDER_KEY_MAP.get(provider_enum.value, "account_id")
+    adapter_kwargs[provider_key] = external_account_id
+    try:
+        adapter = get_adapter(provider_enum, **adapter_kwargs)
+        if not await adapter.validate_connection():
+            return RedirectResponse(
+                url="/channels?error=Provided+credentials+could+not+be+validated",
+                status_code=302,
+            )
+    except (ValueError, RuntimeError) as e:
+        logger.error("Manual connect validation failed for %s: %s", provider, e)
+        return RedirectResponse(
+            url="/channels?error=Credential+validation+failed",
+            status_code=302,
+        )
 
     channel_svc = ChannelService(db)
     cred_svc = CredentialService()

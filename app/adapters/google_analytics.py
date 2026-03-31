@@ -5,8 +5,8 @@ from datetime import date, datetime
 
 import httpx
 
-from app.adapters.base import ChannelAdapter, MetricData, PostData
-from app.config import settings
+from app.adapters.base import ChannelAdapter, MetricData, PostData, PublishResult
+from app.services.marketing_runtime import get_marketing_value
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,10 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                 data={
                     "grant_type": "authorization_code",
                     "code": auth_code,
-                    "client_id": settings.google_analytics_client_id,
-                    "client_secret": settings.google_analytics_client_secret,
+                    "client_id": get_marketing_value("google_analytics_client_id"),
+                    "client_secret": get_marketing_value(
+                        "google_analytics_client_secret"
+                    ),
                     "redirect_uri": redirect_uri,
                 },
             )
@@ -57,8 +59,10 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                     data={
                         "grant_type": "refresh_token",
                         "refresh_token": refresh_token_value,
-                        "client_id": settings.google_analytics_client_id,
-                        "client_secret": settings.google_analytics_client_secret,
+                        "client_id": get_marketing_value("google_analytics_client_id"),
+                        "client_secret": get_marketing_value(
+                            "google_analytics_client_secret"
+                        ),
                     },
                 )
                 resp.raise_for_status()
@@ -164,6 +168,16 @@ class GoogleAnalyticsAdapter(ChannelAdapter):
                         )
                     )
         return results
+
+    async def publish_post(
+        self,
+        content: str,
+        *,
+        media_urls: list[str] | None = None,
+        title: str | None = None,
+    ) -> PublishResult:
+        """Google Analytics is an analytics-only channel."""
+        raise NotImplementedError("Google Analytics does not support publishing")
 
     async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """GA4 does not have posts — return empty list."""

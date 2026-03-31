@@ -1,0 +1,115 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/table_macros.html" import status_badge, empty_state %}
+
+{% block page_title %}{{ detail.campaign.name if detail and detail.campaign else 'Ad Campaign' }}{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    {# Header #}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <a href="/analytics/ads?start_date={{ start_date }}&end_date={{ end_date }}" class="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition mb-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                All Ad Campaigns
+            </a>
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">
+                {{ detail.campaign.name if detail.campaign.name else 'Unnamed Campaign' }}
+            </h1>
+            <div class="flex items-center gap-3 mt-1">
+                <span class="text-sm text-slate-500 dark:text-slate-400">{{ detail.campaign.platform_display if detail.campaign.platform_display else detail.campaign.platform }}</span>
+                {% set status_colors = {'active': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400', 'paused': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', 'removed': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'} %}
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium {{ status_colors.get(detail.campaign.status, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">{{ detail.campaign.status | replace('_', ' ') | title }}</span>
+                <span class="text-xs text-slate-400 dark:text-slate-500">External ID: {{ detail.campaign.external_id if detail.campaign.external_id else 'N/A' }}</span>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <form method="GET" class="flex flex-wrap items-center gap-2">
+                <input type="date" name="start_date" value="{{ start_date if start_date else '' }}" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                <span class="text-sm text-slate-400">to</span>
+                <input type="date" name="end_date" value="{{ end_date if end_date else '' }}" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition">Apply</button>
+            </form>
+        </div>
+    </div>
+
+    {# Ad Groups table #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Ad Groups</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impressions</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conversions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for ag in detail.ad_groups %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                        <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ ag.name if ag.name else 'Unnamed' }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium {{ status_colors.get(ag.status, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">{{ ag.status | replace('_', ' ') | title }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">${{ "%.2f" | format(ag.spend | float) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ag.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ag.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ag.conversions | format_number(0) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6">{{ empty_state("No ad groups found for this campaign in the selected date range.") }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Ads table #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Individual Ads</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ad</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ad Group</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impressions</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conversions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for ad in detail.ads %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                        <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ ad.name if ad.name else 'Unnamed' }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ ad.group_name if ad.group_name else '-' }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium {{ status_colors.get(ad.status, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">{{ ad.status | replace('_', ' ') | title }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">${{ "%.2f" | format(ad.spend | float) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ad.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ad.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ad.conversions | format_number(0) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7">{{ empty_state("No individual ads found for this campaign in the selected date range.") }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

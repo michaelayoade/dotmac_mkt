@@ -118,7 +118,7 @@
     </a>
     {% endfor %}
     {% if delete_url %}
-    <form method="POST" action="{{ delete_url }}" onsubmit="return confirm('Are you sure you want to delete this item?');" class="inline">
+    <form method="POST" action="{{ delete_url }}" onsubmit="return confirm('Permanently delete this item? This cannot be undone.');" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
         <button type="submit" class="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 dark:hover:text-red-400" title="Delete">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

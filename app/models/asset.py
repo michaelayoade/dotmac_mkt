@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
+from urllib.parse import quote
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -74,6 +75,24 @@ class Asset(TimestampMixin, Base):
         if self.file_size < 1024 * 1024:
             return f"{self.file_size / 1024:.1f} KB"
         return f"{self.file_size / (1024 * 1024):.1f} MB"
+
+    @property
+    def preview_url(self) -> str | None:
+        """Best-effort embeddable preview URL for image/video assets."""
+        mime_type = (self.mime_type or "").lower()
+        if self.thumbnail_url and mime_type.startswith("image/"):
+            return self.thumbnail_url
+        if self.drive_file_id and mime_type.startswith("image/"):
+            return (
+                "https://drive.google.com/thumbnail"
+                f"?id={quote(self.drive_file_id)}&sz=w1600"
+            )
+        if self.drive_file_id and mime_type.startswith("video/"):
+            return (
+                "https://drive.google.com/uc"
+                f"?export=download&id={quote(self.drive_file_id)}"
+            )
+        return self.drive_url
 
     campaigns = relationship(
         "Campaign",

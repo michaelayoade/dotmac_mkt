@@ -49,6 +49,9 @@ class Post(TimestampMixin, Base):
 
     campaign = relationship("Campaign", back_populates="posts")
     channel = relationship("Channel", back_populates="posts")
+    deliveries = relationship(
+        "PostDelivery", back_populates="post", cascade="all, delete-orphan"
+    )
     assets = relationship("Asset", secondary="post_assets", back_populates="posts")
 
     __table_args__ = (

@@ -6,6 +6,7 @@ from alembic import context
 from app.config import settings
 from app.db import Base
 from app.models import (  # noqa: F401
+    ad_campaign,
     asset,
     audit,
     auth,

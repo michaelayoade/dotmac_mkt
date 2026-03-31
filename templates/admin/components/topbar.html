@@ -58,6 +58,7 @@
             <!-- Dark mode toggle -->
             <button x-on:click="$store.dark.toggle()"
                     aria-label="Toggle dark mode"
+                    :aria-pressed="$store.dark.on ? 'true' : 'false'"
                     class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
                 <svg x-show="$store.dark.isOff()" class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />

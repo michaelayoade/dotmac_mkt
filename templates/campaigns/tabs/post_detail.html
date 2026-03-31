@@ -1,0 +1,174 @@
+{% from "admin/components/table_macros.html" import status_badge %}
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-5">
+    {% if selected_post %}
+    <div class="flex items-start justify-between gap-4">
+        <div class="space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Post Detail</p>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                {{ selected_post.title if selected_post.title else 'Untitled post' }}
+            </h3>
+            {% if campaign %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+                Campaign: {{ campaign.name if campaign.name else 'Unnamed campaign' }}
+            </p>
+            {% endif %}
+        </div>
+        <div class="flex flex-col items-end gap-2">
+            {{ status_badge(selected_post.status | string if selected_post.status else '') }}
+            {% if can_publish_now %}
+            <form method="POST" action="/campaigns/{{ campaign.id }}/posts/{{ selected_post.id }}/publish" onsubmit="return confirm('Publish this post now?');">
+                {{ request.state.csrf_form | safe }}
+                <button type="submit" class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-primary-700">
+                    Publish now
+                </button>
+            </form>
+            {% elif publish_block_reason %}
+            <p class="max-w-xs text-right text-xs text-slate-500 dark:text-slate-400">
+                {{ publish_block_reason }}
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="flex items-center gap-2 -mt-2">
+        {% if can_edit_post %}
+        <a href="/campaigns/{{ campaign.id }}/posts/{{ selected_post.id }}/edit"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Edit
+        </a>
+        {% endif %}
+        {% if can_delete_post %}
+        <form method="POST" action="/campaigns/{{ campaign.id }}/posts/{{ selected_post.id }}/delete"
+              onsubmit="return confirm('Delete this post? This cannot be undone.');"
+              class="inline">
+            {{ request.state.csrf_form | safe }}
+            <button type="submit"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    {% if edit_block_reason or delete_block_reason %}
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+        {{ edit_block_reason if edit_block_reason else delete_block_reason }}
+    </p>
+    {% endif %}
+
+    <div class="grid gap-3 sm:grid-cols-3">
+        {% for metric in metric_cards %}
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 {{ metric.bg }}">
+            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ metric.label }}</p>
+            <p class="mt-2 text-2xl font-semibold {{ metric.tone }}">{{ metric.value | format_number(0) }}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+            <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Post Info</h4>
+            <dl class="space-y-3 text-sm">
+                <div class="flex items-start justify-between gap-4">
+                    <dt class="text-slate-500 dark:text-slate-400">Channels</dt>
+                    <dd class="text-right text-slate-900 dark:text-white">
+                        {% for channel in selected_channels if selected_channels is defined %}
+                        <div>{{ channel.name }}</div>
+                        {% else %}
+                        Unassigned
+                        {% endfor %}
+                    </dd>
+                </div>
+                <div class="flex items-start justify-between gap-4">
+                    <dt class="text-slate-500 dark:text-slate-400">Scheduled</dt>
+                    <dd class="text-right text-slate-900 dark:text-white">{{ selected_post.scheduled_at.strftime('%b %d, %Y %H:%M') if selected_post.scheduled_at else 'Unscheduled' }}</dd>
+                </div>
+                <div class="flex items-start justify-between gap-4">
+                    <dt class="text-slate-500 dark:text-slate-400">Published</dt>
+                    <dd class="text-right text-slate-900 dark:text-white">{{ selected_post.published_at.strftime('%b %d, %Y %H:%M') if selected_post.published_at else 'Not published yet' }}</dd>
+                </div>
+                <div class="flex items-start justify-between gap-4">
+                    <dt class="text-slate-500 dark:text-slate-400">External Post ID</dt>
+                    <dd class="text-right text-slate-900 dark:text-white break-all">{{ selected_post.external_post_id if selected_post.external_post_id else 'Not linked' }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+            <div class="flex items-center justify-between gap-4">
+                <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Recent Daily Performance</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Last {{ daily_rows|length }} tracked day{{ '' if daily_rows|length == 1 else 's' }}</p>
+            </div>
+            {% if daily_rows %}
+            <div class="space-y-2">
+                {% for row in daily_rows %}
+                <div class="grid grid-cols-4 gap-2 rounded-lg bg-slate-50 dark:bg-slate-900/40 px-3 py-2 text-sm">
+                    <p class="text-slate-500 dark:text-slate-400">{{ row.date }}</p>
+                    <p class="text-slate-900 dark:text-white">{{ row.impressions | format_number(0) }} imp.</p>
+                    <p class="text-slate-900 dark:text-white">{{ (row.reach if views_label == 'Reach' else row.get('pageviews', 0)) | format_number(0) }} {{ views_label|lower }}</p>
+                    <p class="text-slate-900 dark:text-white">{{ row.engagement | format_number(0) }} eng.</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">No post-level analytics have been synced for this post yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+        <div class="flex items-center justify-between gap-4">
+            <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Delivery Status</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                {{ delivery_rows|length if delivery_rows is defined else 0 }} delivery{{ '' if delivery_rows|length == 1 else 'ies' }}
+            </p>
+        </div>
+        {% if delivery_rows %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <thead>
+                    <tr class="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        <th scope="col" class="py-2 pr-4">Channel</th>
+                        <th scope="col" class="py-2 pr-4">Platform</th>
+                        <th scope="col" class="py-2 pr-4">Status</th>
+                        <th scope="col" class="py-2 pr-4">Override</th>
+                        <th scope="col" class="py-2 pr-4">Published</th>
+                        <th scope="col" class="py-2 pr-4">External ID</th>
+                        <th scope="col" class="py-2">Error</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    {% for delivery in delivery_rows %}
+                    <tr class="align-top">
+                        <td class="py-3 pr-4 font-medium text-slate-900 dark:text-white">{{ delivery.channel_name }}</td>
+                        <td class="py-3 pr-4 text-slate-600 dark:text-slate-300">{{ delivery.provider }}</td>
+                        <td class="py-3 pr-4 text-slate-600 dark:text-slate-300">{{ delivery.status | replace('_', ' ') | title }}</td>
+                        <td class="py-3 pr-4 text-slate-600 dark:text-slate-300">{{ 'Yes' if delivery.has_override else 'No' }}</td>
+                        <td class="py-3 pr-4 text-slate-600 dark:text-slate-300">{{ delivery.published_at }}</td>
+                        <td class="py-3 pr-4 text-slate-600 dark:text-slate-300 break-all">{{ delivery.external_post_id }}</td>
+                        <td class="py-3 text-slate-600 dark:text-slate-300">{{ delivery.error_message if delivery.error_message else 'No errors' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 dark:text-slate-400">No channel deliveries have been created for this post yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+        <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Post Content</h4>
+        <p class="text-sm leading-6 text-slate-600 dark:text-slate-300 whitespace-pre-line">
+            {{ selected_post.content if selected_post.content else 'No copy has been added for this post yet.' }}
+        </p>
+    </div>
+    {% else %}
+    <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-8 text-center">
+        <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Select a post to inspect its details.</p>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Metrics and content will appear here in a separate card.</p>
+    </div>
+    {% endif %}
+</div>

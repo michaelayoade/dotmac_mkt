@@ -1,4 +1,12 @@
 # Marketing domain models
+from app.models.ad_campaign import (  # noqa: F401
+    Ad,
+    AdCampaign,
+    AdEntityStatus,
+    AdGroup,
+    AdMetric,
+    AdPlatform,
+)
 from app.models.asset import Asset, AssetType, DriveStatus, post_assets  # noqa: F401
 from app.models.audit import AuditActorType, AuditEvent  # noqa: F401
 from app.models.auth import (  # noqa: F401
@@ -55,6 +63,7 @@ from app.models.file_upload import FileUpload, FileUploadStatus  # noqa: F401
 from app.models.notification import Notification, NotificationType  # noqa: F401
 from app.models.person import ContactMethod, Gender, Person, PersonStatus  # noqa: F401
 from app.models.post import Post, PostStatus  # noqa: F401
+from app.models.post_delivery import PostDelivery, PostDeliveryStatus  # noqa: F401
 from app.models.rbac import Permission, PersonRole, Role, RolePermission  # noqa: F401
 from app.models.scheduler import ScheduledTask, ScheduleType  # noqa: F401
 from app.models.task import Task, TaskStatus  # noqa: F401

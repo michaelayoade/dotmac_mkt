@@ -1,0 +1,215 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/table_macros.html" import empty_state %}
+{% from "components/macros.html" import metric_card %}
+
+{% block page_title %}Meta Ads{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Meta Ads History</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Daily ad-level delivery and spend from connected Meta ad accounts.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <form method="GET" action="/analytics/meta-ads" class="flex flex-wrap items-center gap-2">
+                <input type="date" name="start_date"
+                       value="{{ start_date if start_date else '' }}"
+                       class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                <span class="text-sm text-slate-400">to</span>
+                <input type="date" name="end_date"
+                       value="{{ end_date if end_date else '' }}"
+                       class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                <select name="campaign"
+                        class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                    <option value="">All campaigns</option>
+                    {% for option in campaign_options if campaign_options is defined %}
+                    <option value="{{ option.value }}" {% if selected_campaign == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition">Apply</button>
+                <a href="/analytics/meta-ads?start_date={{ today_iso }}&end_date={{ today_iso }}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">Today</a>
+            </form>
+            <a href="/analytics/meta-ads/export?start_date={{ start_date }}&end_date={{ end_date }}{% if selected_campaign %}&campaign={{ selected_campaign }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg border border-primary-300 dark:border-primary-700 text-sm font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition">Export CSV</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        {{ metric_card("Impressions", total_impressions if total_impressions is defined else 0, "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z") }}
+        {{ metric_card("Reach", total_reach if total_reach is defined else 0, "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z") }}
+        {{ metric_card("Clicks", total_clicks if total_clicks is defined else 0, "M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59") }}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-2.21 0-4 .895-4 2s1.79 2 4 2 4 .895 4 2-1.79 2-4 2m0-8c1.11 0 2.08.228 2.772.577M12 8V6m0 10v2m0-2c-1.11 0-2.08-.228-2.772-.577" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white" style="font-variant-numeric: tabular-nums;">{{ currency_prefix if currency_prefix else '' }}{{ (total_spend if total_spend is defined else 0) | round(2) }}</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Spend{% if currency_code and currency_code != 'MULTI' %} ({{ currency_code }}){% endif %}</p>
+                </div>
+            </div>
+        </div>
+        {{ metric_card("Conversions", (total_conversions if total_conversions is defined else 0) | round(2), "M5 13l4 4L19 7") }}
+    </div>
+
+    {% if errors %}
+    <div class="space-y-2">
+        {% for error in errors %}
+        <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">{{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Accounts in View</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Account</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impressions</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Reach</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for row in account_rows if account_rows is defined %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-3">
+                            <div class="text-sm font-medium text-slate-900 dark:text-white">{{ row.channel_name }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Account ID: {{ row.account_id if row.account_id else 'Unknown' }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.reach | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ currency_prefix if currency_prefix else '' }}{{ row.spend | round(2) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">{{ empty_state("No connected Meta ad accounts in this view") }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Campaign Totals</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Account</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Campaign</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impressions</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conversions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for row in campaign_rows if campaign_rows is defined %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-3">
+                            <div class="text-sm text-slate-600 dark:text-slate-400">{{ row.channel_name }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ row.campaign_name }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ currency_prefix if currency_prefix else '' }}{{ row.spend | round(2) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.conversions | round(2) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6">{{ empty_state("No Meta Ads data for this period") }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Ad History</h3>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">One row per account, day, campaign, ad set, and ad after deduplication.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Day</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Account</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Campaign</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ad Set</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ad</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impr.</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Reach</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">CTR</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for row in history_rows if history_rows is defined %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ row.date_start }}</td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm text-slate-600 dark:text-slate-400">{{ row.channel_name }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">ID: {{ row.account_id if row.account_id else 'Unknown' }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm font-medium text-slate-900 dark:text-white">{{ row.campaign_name if row.campaign_name else 'Unlabeled campaign' }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Campaign ID: {{ row.campaign_id if row.campaign_id else 'Unknown' }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm text-slate-600 dark:text-slate-400">{{ row.adset_name if row.adset_name else 'Unlabeled ad set' }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Ad Set ID: {{ row.adset_id if row.adset_id else 'Unknown' }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm text-slate-600 dark:text-slate-400">{{ row.ad_name if row.ad_name else 'Unnamed ad' }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Ad ID: {{ row.ad_id if row.ad_id else 'Unknown' }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.reach | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ row.ctr | round(2) }}%</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ currency_prefix if currency_prefix else '' }}{{ row.spend | round(2) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10">{{ empty_state("No ad rows available") }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+                Showing {{ ((page - 1) * page_size) + 1 if total_rows else 0 }}-{{ ((page - 1) * page_size) + (history_rows|length) if total_rows else 0 }} of {{ total_rows }}
+            </p>
+            <div class="flex items-center gap-2">
+                {% if has_prev_page %}
+                <a href="/analytics/meta-ads?start_date={{ start_date }}&end_date={{ end_date }}{% if selected_campaign %}&campaign={{ selected_campaign }}{% endif %}&page={{ prev_page }}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">Previous</a>
+                {% endif %}
+                <span class="text-sm text-slate-500 dark:text-slate-400">Page {{ page }} of {{ total_pages }}</span>
+                {% if has_next_page %}
+                <a href="/analytics/meta-ads?start_date={{ start_date }}&end_date={{ end_date }}{% if selected_campaign %}&campaign={{ selected_campaign }}{% endif %}&page={{ next_page }}"
+                   class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">Next</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

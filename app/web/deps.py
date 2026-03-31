@@ -5,14 +5,14 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.auth import Session as AuthSession
 from app.models.auth import SessionStatus
 from app.models.person import Person
-from app.services.auth_flow import decode_access_token
+from app.services.auth_flow import AuthFlow, decode_access_token
 from app.services.common import coerce_uuid
 
 logger = logging.getLogger(__name__)
@@ -34,8 +34,53 @@ def _make_aware(dt: datetime) -> datetime:
     return dt
 
 
+def _is_secure_request(request: Request) -> bool:
+    proto = request.headers.get("x-forwarded-proto", "")
+    return proto == "https" or request.url.scheme == "https"
+
+
+def _refresh_web_tokens(request: Request, response: Response, db: Session) -> dict:
+    refresh_token = AuthFlow.resolve_refresh_token(request, None, db)
+    if not refresh_token:
+        raise WebAuthRedirect(next_url=request.url.path)
+
+    try:
+        refreshed = AuthFlow.refresh(db, refresh_token, request)
+    except HTTPException:
+        raise WebAuthRedirect(next_url=request.url.path)
+
+    access_token = refreshed.get("access_token", "")
+    new_refresh_token = refreshed.get("refresh_token", "")
+    if not access_token or not new_refresh_token:
+        raise WebAuthRedirect(next_url=request.url.path)
+
+    secure = _is_secure_request(request)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path="/",
+        max_age=3600,
+    )
+    refresh_settings = AuthFlow.refresh_cookie_settings(db)
+    response.set_cookie(
+        key=refresh_settings["key"],
+        value=new_refresh_token,
+        httponly=bool(refresh_settings["httponly"]),
+        secure=bool(refresh_settings["secure"]),
+        samesite=str(refresh_settings["samesite"]),
+        path=str(refresh_settings["path"]),
+        domain=refresh_settings["domain"],
+        max_age=int(refresh_settings["max_age"]),
+    )
+    return decode_access_token(db, access_token)
+
+
 def require_web_auth(
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> dict:
     """Read JWT from access_token cookie and validate session.
@@ -45,12 +90,12 @@ def require_web_auth(
     """
     token = request.cookies.get("access_token", "")
     if not token:
-        raise WebAuthRedirect(next_url=request.url.path)
-
-    try:
-        payload = decode_access_token(db, token)
-    except HTTPException:
-        raise WebAuthRedirect(next_url=request.url.path)
+        payload = _refresh_web_tokens(request, response, db)
+    else:
+        try:
+            payload = decode_access_token(db, token)
+        except HTTPException:
+            payload = _refresh_web_tokens(request, response, db)
 
     person_id = payload.get("sub")
     session_id = payload.get("session_id")

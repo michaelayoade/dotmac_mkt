@@ -1,8 +1,12 @@
 {% if org_branding and org_branding.fonts_url %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="{{ org_branding.fonts_url }}" rel="stylesheet">
+<link href="{{ org_branding.fonts_url }}&display=swap" rel="stylesheet">
 {% endif %}
+{# SECURITY: org_branding.css is injected raw inside <style>. The value MUST be
+   sanitized server-side before storage (strip url(), @import, expression(), etc.)
+   to prevent CSS injection attacks. Jinja2 auto-escaping does NOT apply inside
+   <style> tags. See CredentialService or the branding save endpoint. #}
 {% if org_branding and org_branding.css %}
 <style id="org-branding">
 {{ org_branding.css }}

@@ -3,7 +3,7 @@ import logging
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from app.config import settings
+from app.services.marketing_runtime import get_marketing_value
 
 logger = logging.getLogger(__name__)
 
@@ -12,9 +12,9 @@ class CredentialService:
     """Encrypt and decrypt OAuth credentials using Fernet symmetric encryption."""
 
     def __init__(self) -> None:
-        key = settings.encryption_key
+        key = get_marketing_value("encryption_key")
         if not key:
-            raise RuntimeError("ENCRYPTION_KEY env var is not set")
+            raise RuntimeError("ENCRYPTION_KEY is not configured")
         self._fernet = Fernet(key.encode())
 
     def encrypt(self, data: dict) -> bytes:
@@ -31,4 +31,4 @@ class CredentialService:
 
     @staticmethod
     def is_configured() -> bool:
-        return bool(settings.encryption_key)
+        return bool(get_marketing_value("encryption_key"))

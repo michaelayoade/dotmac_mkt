@@ -92,3 +92,6 @@ class Campaign(TimestampMixin, Base):
         "Asset", secondary=campaign_assets, back_populates="campaigns"
     )
     members = relationship("Person", secondary=campaign_members)
+    ad_campaigns = relationship(
+        "AdCampaign", back_populates="campaign", cascade="all, delete-orphan"
+    )

@@ -1,23 +1,45 @@
 {% from "admin/components/table_macros.html" import empty_state %}
 
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-    {% for asset in assets %}
-    <a href="/assets/{{ asset.id }}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden card-hover block">
-        <div class="aspect-video bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-            {% if asset.thumbnail_url %}
-            <img src="{{ asset.thumbnail_url }}" alt="{{ asset.name if asset.name else '' }}" class="w-full h-full object-cover" />
-            {% else %}
-            <svg class="w-10 h-10 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-            {% endif %}
+<div class="space-y-4">
+    <div class="flex items-center justify-between gap-4">
+        <div>
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Campaign Assets</h3>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Upload or link media here before attaching it to posts for Instagram publishing.</p>
         </div>
-        <div class="p-3">
-            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">{{ asset.name if asset.name else '' }}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400">{{ asset.asset_type | replace('_', ' ') | title if asset.asset_type else '' }}</p>
+        <div class="flex items-center gap-3">
+            <a href="/assets?campaign_id={{ campaign.id }}"
+               class="text-sm text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
+                Open Library
+            </a>
+            <a href="/assets/create?campaign_id={{ campaign.id }}&next=/campaigns/{{ campaign.id }}"
+               class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-primary-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Asset
+            </a>
         </div>
-    </a>
-    {% else %}
-    {{ empty_state("No assets linked to this campaign") }}
-    {% endfor %}
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {% for asset in assets %}
+        <a href="/assets/{{ asset.id }}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden card-hover block">
+            <div class="aspect-video bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                {% if asset.thumbnail_url %}
+                <img src="{{ asset.thumbnail_url }}" alt="{{ asset.name if asset.name else '' }}" class="w-full h-full object-cover" />
+                {% else %}
+                <svg class="w-10 h-10 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                {% endif %}
+            </div>
+            <div class="p-3">
+                <p class="text-sm font-medium text-slate-900 dark:text-white truncate">{{ asset.name if asset.name else '' }}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">{{ asset.asset_type | replace('_', ' ') | title if asset.asset_type else '' }}</p>
+            </div>
+        </a>
+        {% else %}
+        {{ empty_state("No assets linked to this campaign", "/assets/create?campaign_id=" ~ (campaign.id | string) ~ "&next=/campaigns/" ~ (campaign.id | string), "Add Asset") }}
+        {% endfor %}
+    </div>
 </div>

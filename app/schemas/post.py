@@ -13,8 +13,9 @@ class PostBase(BaseModel):
     content: str | None = Field(default=None)
     status: PostStatus = Field(default=PostStatus.draft)
     campaign_id: UUID
-    channel_id: UUID
+    channel_id: UUID | None = Field(default=None)
     scheduled_at: datetime | None = Field(default=None)
+    channel_ids: list[UUID] = Field(default_factory=list)
 
 
 class PostCreate(PostBase):

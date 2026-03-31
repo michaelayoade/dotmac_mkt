@@ -10,8 +10,14 @@
     </h1>
 
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        {% if error %}
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+            {{ error }}
+        </div>
+        {% endif %}
         <form method="POST" enctype="multipart/form-data" class="space-y-5">
             {{ request.state.csrf_form | safe }}
+            <input type="hidden" name="next" value="{{ next_url if next_url is defined and next_url else '' }}" />
 
             {{ text_input("name", "Asset Name", value=asset.name if asset is defined and asset.name else '', required=true, placeholder="e.g. Hero Banner Q1") }}
 
@@ -25,16 +31,100 @@
             ] %}
             {{ select_field("asset_type", "Asset Type", type_options, selected=asset.asset_type | string if asset is defined and asset.asset_type else '', required=true) }}
 
+            {% if mode != 'edit' %}
+            <div>
+                <label for="campaign_id" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Link To Campaign</label>
+                <select
+                    id="campaign_id"
+                    name="campaign_id"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                    <option value="">Do not link yet</option>
+                    {% for campaign in campaigns if campaigns is defined %}
+                    <option value="{{ campaign.id }}" {{ 'selected' if selected_campaign_id is defined and selected_campaign_id == campaign.id | string else '' }}>
+                        {{ campaign.name if campaign.name else 'Untitled campaign' }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Link the asset to a campaign so it becomes available in that campaign’s post editor immediately.</p>
+            </div>
+            {% endif %}
+
             {{ text_input("tags", "Tags", value=asset.tags | join(', ') if asset is defined and asset.tags else '', placeholder="e.g. social, banner, q1-launch", help_text="Comma-separated list of tags") }}
 
             {{ text_input("drive_file_id", "Google Drive File ID", value=asset.drive_file_id if asset is defined and asset.drive_file_id else '', placeholder="Optional — paste the Drive file ID", help_text="If provided, the asset will be linked to this Google Drive file.") }}
 
+            <div>
+                <label for="drive_url" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Media URL</label>
+                <input
+                    type="url"
+                    id="drive_url"
+                    name="drive_url"
+                    value="{{ asset.drive_url if asset is defined and asset.drive_url else '' }}"
+                    placeholder="https://..."
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Required for Instagram publishing. Use a direct or Drive-hosted media URL that the publishing integration can fetch.</p>
+            </div>
+
+            <div>
+                <label for="thumbnail_url" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Thumbnail URL</label>
+                <input
+                    type="url"
+                    id="thumbnail_url"
+                    name="thumbnail_url"
+                    value="{{ asset.thumbnail_url if asset is defined and asset.thumbnail_url else '' }}"
+                    placeholder="Optional preview image URL"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+            </div>
+
+            <div>
+                <label for="mime_type" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">MIME Type</label>
+                <input
+                    type="text"
+                    id="mime_type"
+                    name="mime_type"
+                    value="{{ asset.mime_type if asset is defined and asset.mime_type else '' }}"
+                    placeholder="image/jpeg, video/mp4, ..."
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Optional, but recommended for image and video assets.</p>
+            </div>
+
             {% if mode != 'edit' %}
+            <div
+                class="relative"
+                data-typeahead-url="/assets/drive-folders/search"
+                data-typeahead-min="0"
+                data-typeahead-limit="10"
+            >
+                <label for="drive_folder_search" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Drive Destination Folder</label>
+                <input
+                    type="text"
+                    id="drive_folder_search"
+                    value="{{ selected_drive_folder_name if selected_drive_folder_name else '' }}"
+                    placeholder="Search Google Drive folders..."
+                    data-typeahead-input
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <input
+                    type="hidden"
+                    name="drive_folder_id"
+                    value="{{ selected_drive_folder_id if selected_drive_folder_id else '' }}"
+                    data-typeahead-hidden
+                />
+                <div data-typeahead-results></div>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Search for any accessible Google Drive folder. If you leave this unchanged, the configured default folder will be used.</p>
+                {% if default_drive_folder_id %}
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Default folder ID: <span class="font-mono">{{ default_drive_folder_id }}</span></p>
+                {% endif %}
+            </div>
             <div>
                 <label for="file" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">File Upload</label>
                 <input type="file" id="file" name="file"
                        class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 dark:file:bg-primary-900/20 dark:file:text-primary-400 hover:file:bg-primary-100" />
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Upload a file or provide a Google Drive File ID above.</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Upload a file to send it to the selected Google Drive folder, or provide an existing Google Drive File ID above.</p>
             </div>
             {% endif %}
 

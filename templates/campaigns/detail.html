@@ -1,10 +1,21 @@
 {% extends "admin/base.html" %}
 {% from "admin/components/table_macros.html" import status_badge, empty_state %}
 
-{% block page_title %}{{ campaign.name if campaign.name else 'Campaign Detail' }}{% endblock %}
+{% block page_title %}{{ campaign.name if campaign.name else 'Marketing Campaign Detail' }}{% endblock %}
 
 {% block admin_content %}
 <div class="space-y-6">
+    {% if success_message %}
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+        {{ success_message }}
+    </div>
+    {% endif %}
+    {% if error_message %}
+    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+        {{ error_message }}
+    </div>
+    {% endif %}
+
     {# Header #}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -17,8 +28,8 @@
                 {% set pct = progress_pct if progress_pct is defined else 0 %}
                 {% set circumference = 88 %}
                 {% set offset = circumference - (circumference * pct / 100) %}
-                <div class="relative w-10 h-10 flex-shrink-0" title="{{ published_posts if published_posts is defined else 0 }}/{{ total_posts }} posts published">
-                    <svg class="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                <div class="relative w-10 h-10 flex-shrink-0" title="{{ published_posts if published_posts is defined else 0 }}/{{ total_posts }} posts published" role="img" aria-label="{{ pct }}% complete — {{ published_posts if published_posts is defined else 0 }} of {{ total_posts }} posts published">
+                    <svg class="w-10 h-10 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
                         <circle cx="18" cy="18" r="14" fill="none" stroke-width="3"
                                 class="stroke-slate-200 dark:stroke-slate-700" />
                         <circle cx="18" cy="18" r="14" fill="none" stroke-width="3"
@@ -37,12 +48,13 @@
                 &ndash;
                 {{ campaign.end_date.strftime('%b %d, %Y') if campaign.end_date else 'Ongoing' }}
             </p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">This is an internal workspace, separate from paid ad campaigns in Meta Ads and Google Ads.</p>
         </div>
         <div class="flex items-center gap-2">
             <a href="/campaigns/{{ campaign.id }}/edit" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700">
                 Edit
             </a>
-            <form method="POST" action="/campaigns/{{ campaign.id }}/archive" onsubmit="return confirm('Archive this campaign?');" class="inline">
+            <form method="POST" action="/campaigns/{{ campaign.id }}/archive" onsubmit="return confirm('Archive this campaign? It will be hidden from active views but can be restored later.');" class="inline">
                 {{ request.state.csrf_form | safe }}
                 <button type="submit" class="px-4 py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
                     Archive
@@ -52,23 +64,28 @@
     </div>
 
     {# Tabs — HTMX lazy load #}
-    <div x-data='{ activeTab: "overview" }'>
+    <div x-data='{ activeTab: "posts" }'>
         <div class="border-b border-slate-200 dark:border-slate-700">
-            <nav class="flex gap-6 -mb-px">
+            <nav class="flex gap-6 -mb-px" role="tablist" aria-label="Campaign sections">
                 {% set tabs = [
                     {"key": "overview", "label": "Overview"},
-                    {"key": "posts", "label": "Posts"},
+                    {"key": "posts", "label": "Content"},
                     {"key": "assets", "label": "Assets"},
                     {"key": "tasks", "label": "Tasks"},
                     {"key": "analytics", "label": "Analytics"},
                 ] %}
                 {% for tab in tabs %}
                 <button x-on:click="activeTab = '{{ tab.key }}'"
+                        role="tab"
+                        :aria-selected="activeTab === '{{ tab.key }}' ? 'true' : 'false'"
+                        aria-controls="tabpanel-{{ tab.key }}"
+                        :tabindex="activeTab === '{{ tab.key }}' ? '0' : '-1'"
+                        id="tab-btn-{{ tab.key }}"
                         {% if tab.key != 'overview' %}
                         hx-get="/campaigns/{{ campaign.id }}/tab/{{ tab.key }}"
                         hx-target="#tab-{{ tab.key }}"
                         hx-swap="innerHTML"
-                        hx-trigger="click once"
+                        hx-trigger="{{ 'load once, click once' if tab.key == 'posts' else 'click once' }}"
                         {% endif %}
                         :class="activeTab === '{{ tab.key }}' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300'"
                         class="px-1 py-3 text-sm font-medium border-b-2 transition">
@@ -79,7 +96,7 @@
         </div>
 
         {# Overview Tab — always loaded #}
-        <div x-show="activeTab === 'overview'" class="py-6 space-y-4">
+        <div x-show="activeTab === 'overview'" id="tabpanel-overview" role="tabpanel" aria-labelledby="tab-btn-overview" class="py-6 space-y-4">
             <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
                 <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Description</h3>
                 <p class="text-sm text-slate-600 dark:text-slate-400">
@@ -106,7 +123,7 @@
 
         {# Lazy-loaded tabs — content fetched on first click #}
         {% for tab_key in ['posts', 'assets', 'tasks', 'analytics'] %}
-        <div x-show="activeTab === '{{ tab_key }}'" x-cloak class="py-6">
+        <div x-show="activeTab === '{{ tab_key }}'" x-cloak id="tabpanel-{{ tab_key }}" role="tabpanel" aria-labelledby="tab-btn-{{ tab_key }}" class="py-6">
             <div id="tab-{{ tab_key }}">
                 <div class="space-y-4 animate-pulse">
                     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">

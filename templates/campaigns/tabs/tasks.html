@@ -6,7 +6,7 @@
         <div class="px-5 py-3 flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-slate-900 dark:text-white">{{ task.title if task.title else '' }}</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                     {{ (task.assignee.first_name ~ ' ' ~ task.assignee.last_name) if task.assignee else 'Unassigned' }}
                     {% if task.due_date %} &middot; Due {{ task.due_date.strftime('%b %d') }}{% endif %}
                 </p>

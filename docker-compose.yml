@@ -41,7 +41,12 @@ services:
       - ./app:/app/app
       - ./templates:/app/templates
       - ./static:/app/static
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    command:
+      [
+        "/bin/sh",
+        "-lc",
+        "/app/bin/tailwindcss -i /app/static/css/input.css -o /app/static/css/styles.css --minify && exec uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload",
+      ]
 
   worker:
     build: .

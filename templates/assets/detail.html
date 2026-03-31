@@ -20,8 +20,8 @@
                 <div class="aspect-video bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                     {% set image_types = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'] %}
                     {% set video_types = ['video/mp4', 'video/webm', 'video/ogg'] %}
-                    {% if asset.mime_type in image_types and asset.drive_url %}
-                    <img src="{{ asset.drive_url }}" alt="{{ asset.name if asset.name else '' }}" class="max-w-full max-h-full object-contain" />
+                    {% if asset.mime_type in image_types and (asset.thumbnail_url or asset.drive_file_id) %}
+                    <img src="{{ asset.thumbnail_url if asset.thumbnail_url else 'https://drive.google.com/thumbnail?id=' ~ asset.drive_file_id ~ '&sz=w1600' }}" alt="{{ asset.name if asset.name else '' }}" class="max-w-full max-h-full object-contain" />
                     {% elif asset.mime_type in video_types and asset.drive_url %}
                     <video controls class="max-w-full max-h-full">
                         <source src="{{ asset.drive_url }}" type="{{ asset.mime_type }}">
@@ -122,7 +122,7 @@
                 <a href="/assets/{{ asset.id }}/edit" class="flex-1 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium text-center hover:bg-slate-50 dark:hover:bg-slate-700">
                     Edit
                 </a>
-                <form method="POST" action="/assets/{{ asset.id }}/delete" onsubmit="return confirm('Delete this asset?');" class="flex-1">
+                <form method="POST" action="/assets/{{ asset.id }}/delete" onsubmit="return confirm('Permanently delete this asset? This cannot be undone.');" class="flex-1">
                     {{ request.state.csrf_form | safe }}
                     <button type="submit" class="w-full px-4 py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
                         Delete

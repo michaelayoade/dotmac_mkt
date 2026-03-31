@@ -13,10 +13,12 @@ from app.db import Base, TimestampMixin
 class ChannelProvider(str, enum.Enum):
     meta_instagram = "meta_instagram"
     meta_facebook = "meta_facebook"
+    meta_ads = "meta_ads"
     twitter = "twitter"
     linkedin = "linkedin"
     google_ads = "google_ads"
     google_analytics = "google_analytics"
+    linkedin_ads = "linkedin_ads"
 
 
 class ChannelStatus(str, enum.Enum):
@@ -43,6 +45,9 @@ class Channel(TimestampMixin, Base):
     last_synced_at = mapped_column(DateTime(timezone=True), nullable=True)
 
     posts = relationship("Post", back_populates="channel")
+    post_deliveries = relationship(
+        "PostDelivery", back_populates="channel", cascade="all, delete-orphan"
+    )
     metrics = relationship(
         "ChannelMetric", back_populates="channel", cascade="all, delete-orphan"
     )

@@ -5,7 +5,9 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.post import Post
+from app.models.channel import Channel
+from app.models.post import Post, PostStatus
+from app.models.post_delivery import PostDelivery, PostDeliveryStatus
 from app.schemas.post import PostCreate, PostUpdate
 
 logger = logging.getLogger(__name__)
@@ -56,11 +58,60 @@ class PostService:
         return result or 0
 
     def create(self, data: PostCreate, created_by: UUID) -> Post:
-        record = Post(**data.model_dump(), created_by=created_by)
+        record = Post(
+            **data.model_dump(exclude={"channel_ids"}),
+            created_by=created_by,
+        )
         self.db.add(record)
         self.db.flush()
         logger.info("Created Post: %s", record.id)
         return record
+
+    def replace_deliveries(
+        self,
+        post: Post,
+        *,
+        channel_ids: list[UUID],
+        content: str | None = None,
+        content_overrides: dict[UUID, str] | None = None,
+    ) -> None:
+        selected = list(dict.fromkeys(channel_ids))
+        existing = {delivery.channel_id: delivery for delivery in post.deliveries}
+        overrides = content_overrides or {}
+
+        for channel_id in list(existing):
+            if channel_id not in selected:
+                self.db.delete(existing[channel_id])
+
+        for channel_id in selected:
+            override = (overrides.get(channel_id) or "").strip() or None
+            if channel_id in existing:
+                delivery = existing[channel_id]
+                delivery.content_override = override
+                if delivery.status != PostDeliveryStatus.published:
+                    delivery.status = (
+                        PostDeliveryStatus.planned
+                        if post.status == PostStatus.planned
+                        else PostDeliveryStatus.draft
+                    )
+                continue
+            channel = self.db.get(Channel, channel_id)
+            if channel is None:
+                continue
+            self.db.add(
+                PostDelivery(
+                    post_id=post.id,
+                    channel_id=channel_id,
+                    provider=channel.provider,
+                    content_override=override or content,
+                    status=(
+                        PostDeliveryStatus.planned
+                        if post.status == PostStatus.planned
+                        else PostDeliveryStatus.draft
+                    ),
+                )
+            )
+        self.db.flush()
 
     def update(self, id: UUID, data: PostUpdate) -> Post:
         record = self.db.get(Post, id)

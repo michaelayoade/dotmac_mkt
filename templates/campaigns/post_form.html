@@ -1,0 +1,194 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/form_macros.html" import text_input, select_field, submit_button %}
+
+{% block page_title %}{{ 'Edit Post' if mode == 'edit' else 'New Post' }}{% endblock %}
+
+{% block admin_content %}
+<div class="max-w-2xl">
+    <div class="mb-6">
+        <a href="/campaigns/{{ campaign.id }}" class="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to {{ campaign.name if campaign.name else 'Campaign' }}
+        </a>
+        <h1 class="mt-2 text-xl font-bold text-slate-900 dark:text-white font-display">
+            {{ 'Edit Post' if mode == 'edit' else 'New Post' }}
+        </h1>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        {% if error is defined and error %}
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" class="space-y-5">
+            {{ request.state.csrf_form | safe }}
+            {% set is_published = post and (post.status | string == 'published') %}
+
+            {{ text_input("title", "Title", value=form_title if form_title is defined else (post.title if post and post.title else ''), required=true, placeholder="e.g. Spring launch announcement") }}
+
+            <div>
+                <label for="content" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Content</label>
+                <textarea
+                    id="content"
+                    name="content"
+                    rows="6"
+                    placeholder="Write your post copy here..."
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-y"
+                >{{ form_content if form_content is defined else (post.content if post and post.content else '') }}</textarea>
+            </div>
+
+            {% if is_published %}
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Publishing Channels</label>
+                <div class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 px-3 py-2 text-slate-700 dark:text-slate-300">
+                    {% for channel in selected_channels if selected_channels is defined %}
+                    <div>{{ channel.name }}</div>
+                    {% else %}
+                    <div>Unassigned</div>
+                    {% endfor %}
+                </div>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Published posts stay on their original delivery channels.</p>
+            </div>
+            {% else %}
+            <fieldset>
+                <legend class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Publishing Channels</legend>
+                <div class="space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    {% for option in channel_options if channel_options is defined %}
+                    <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="channel_ids"
+                                value="{{ option.id }}"
+                                {{ 'checked' if option.selected else '' }}
+                                class="rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500"
+                            />
+                            <div>
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">{{ option.name }}</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ option.provider | replace('_', ' ') | title }}
+                                    {% if option.limit %}
+                                    · Recommended limit: {{ option.limit }} chars
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </label>
+                        <div class="mt-3">
+                            <label for="override_{{ option.id }}" class="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                                {{ option.name }} Override
+                            </label>
+                            <textarea
+                                id="override_{{ option.id }}"
+                                name="override_{{ option.id }}"
+                                rows="3"
+                                placeholder="Optional platform-specific copy. Leave blank to use the main content."
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-y"
+                            >{{ delivery_overrides.get(option.id, option.override) if delivery_overrides is defined else option.override }}</textarea>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Select one or more channels. The app will publish one delivery per selected platform.</p>
+                {% if channel_warnings %}
+                <div class="mt-2 space-y-1">
+                    {% for warning in channel_warnings %}
+                    <p class="text-xs text-amber-600 dark:text-amber-400">{{ warning }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </fieldset>
+            {% endif %}
+
+            {% set status_options = [] %}
+            {% for s in statuses %}
+            {% set _ = status_options.append({"value": s, "label": s | replace('_', ' ') | title}) %}
+            {% endfor %}
+            {% if is_published %}
+            <input type="hidden" name="status" value="published" />
+            {% else %}
+            {{ select_field("status", "Status", status_options, selected=form_status if form_status is defined else (post.status | string if post and post.status else 'draft')) }}
+            {% endif %}
+
+            {% if not is_published %}
+            <div>
+                <label for="scheduled_at" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Schedule Date &amp; Time</label>
+                <input
+                    type="datetime-local"
+                    id="scheduled_at"
+                    name="scheduled_at"
+                    value="{{ form_scheduled_at if form_scheduled_at is defined else (post.scheduled_at.strftime('%Y-%m-%dT%H:%M') if post and post.scheduled_at else '') }}"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Set a date and time to auto-publish. Leave empty for manual publishing. Set status to "Planned" for scheduled publishing.</p>
+            </div>
+            {% endif %}
+
+            <fieldset>
+                <div class="flex items-center justify-between gap-4 mb-2">
+                    <legend class="block text-sm font-medium text-slate-700 dark:text-slate-300">Attach Assets</legend>
+                    <div class="flex items-center gap-3 text-xs">
+                        <a href="{{ asset_create_url if asset_create_url is defined else ('/assets/create?campaign_id=' ~ (campaign.id | string)) }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="text-primary-600 dark:text-primary-400 hover:underline">Add asset</a>
+                        <a href="{{ asset_manage_url if asset_manage_url is defined else ('/assets?campaign_id=' ~ (campaign.id | string)) }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:underline">Manage assets</a>
+                    </div>
+                </div>
+                <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                    Instagram publishing requires at least one selected image or video asset with a populated media URL. Create or edit the asset first if that field is missing.
+                </div>
+                {% if assets %}
+                <div class="space-y-2 max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    {% for asset in assets %}
+                    <label class="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <input
+                            type="checkbox"
+                            name="asset_ids"
+                            value="{{ asset.id }}"
+                            {{ 'checked' if asset.id in selected_asset_ids else '' }}
+                            {{ 'disabled' if is_published else '' }}
+                            class="rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500"
+                        />
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">{{ asset.name if asset.name else 'Untitled' }}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                {{ asset.asset_type | string | replace('_', ' ') | title if asset.asset_type else 'Unknown' }}
+                                {% if asset.drive_url %}
+                                · Media URL ready
+                                {% else %}
+                                · Missing media URL
+                                {% endif %}
+                            </p>
+                        </div>
+                        <a href="/assets/{{ asset.id }}/edit"
+                           class="ml-auto text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                           x-on:click.stop>
+                            Edit asset
+                        </a>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
+                    No campaign assets are linked yet. Add one first, then return to this post form and select it for Instagram publishing.
+                </div>
+                {% endif %}
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {% if is_published %}
+                    Asset changes are locked after publishing because connected channel APIs do not consistently support media replacement.
+                    {% else %}
+                    Select media files to include when publishing. Required for Instagram posts.
+                    {% endif %}
+                </p>
+            </fieldset>
+
+            {{ submit_button(label='Save Post' if mode == 'edit' else 'Create Post', cancel_url='/campaigns/' ~ (campaign.id | string)) }}
+        </form>
+    </div>
+</div>
+{% endblock %}

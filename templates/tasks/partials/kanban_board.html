@@ -1,4 +1,4 @@
-<div id="kanban-board" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div id="kanban-board" class="grid grid-cols-1 gap-4 md:grid-cols-3 md:min-w-[640px] overflow-x-auto">
     {% set column_defs = [
         {"key": "todo", "label": "Todo", "color": "border-slate-300 dark:border-slate-600"},
         {"key": "in_progress", "label": "In Progress", "color": "border-blue-400 dark:border-blue-500"},

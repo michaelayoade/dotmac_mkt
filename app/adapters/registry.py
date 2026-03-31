@@ -5,14 +5,17 @@ from app.adapters.google_ads import GoogleAdsAdapter
 from app.adapters.google_analytics import GoogleAnalyticsAdapter
 from app.adapters.linkedin import LinkedInAdapter
 from app.adapters.meta import MetaAdapter
+from app.adapters.meta_ads import MetaAdsAdapter
 from app.adapters.twitter import TwitterAdapter
 from app.models.channel import ChannelProvider
 
 ADAPTER_MAP: dict[ChannelProvider, type[ChannelAdapter]] = {
     ChannelProvider.meta_instagram: MetaAdapter,
     ChannelProvider.meta_facebook: MetaAdapter,
+    ChannelProvider.meta_ads: MetaAdsAdapter,
     ChannelProvider.twitter: TwitterAdapter,
     ChannelProvider.linkedin: LinkedInAdapter,
+    ChannelProvider.linkedin_ads: LinkedInAdapter,
     ChannelProvider.google_ads: GoogleAdsAdapter,
     ChannelProvider.google_analytics: GoogleAnalyticsAdapter,
 }

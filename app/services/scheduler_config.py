@@ -146,7 +146,7 @@ def build_beat_schedule() -> dict:
     # Marketing beat tasks (hard-coded, not from DB)
     schedule["mkt_analytics_sync"] = {
         "task": "analytics_sync",
-        "schedule": timedelta(hours=24),
+        "schedule": timedelta(minutes=30),
     }
     schedule["mkt_token_refresh"] = {
         "task": "token_refresh",
@@ -155,5 +155,9 @@ def build_beat_schedule() -> dict:
     schedule["mkt_drive_sync"] = {
         "task": "drive_sync",
         "schedule": timedelta(hours=1),
+    }
+    schedule["mkt_ad_sync"] = {
+        "task": "ad_sync",
+        "schedule": timedelta(hours=6),
     }
     return schedule

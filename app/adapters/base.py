@@ -24,8 +24,23 @@ class PostData:
     published_at: datetime | None = None
 
 
+@dataclass
+class PublishResult:
+    external_post_id: str
+    url: str | None = None
+
+
+@dataclass
+class UpdateResult:
+    external_post_id: str | None = None
+    url: str | None = None
+
+
 class ChannelAdapter(ABC):
     """Base interface for all channel integrations."""
+
+    supports_remote_update = False
+    supports_remote_delete = False
 
     @abstractmethod
     async def connect(
@@ -54,3 +69,28 @@ class ChannelAdapter(ABC):
     @abstractmethod
     async def fetch_posts(self, since: datetime | None = None) -> list[PostData]:
         """Sync published content back."""
+
+    @abstractmethod
+    async def publish_post(
+        self,
+        content: str,
+        *,
+        media_urls: list[str] | None = None,
+        title: str | None = None,
+    ) -> PublishResult:
+        """Publish a post to this channel. Returns the external post ID and URL."""
+
+    async def update_post(
+        self,
+        external_post_id: str,
+        content: str,
+        *,
+        media_urls: list[str] | None = None,
+        title: str | None = None,
+    ) -> UpdateResult:
+        """Update a previously published post on this channel."""
+        raise NotImplementedError("Remote post updates are not supported")
+
+    async def delete_post(self, external_post_id: str) -> None:
+        """Delete a previously published post on this channel."""
+        raise NotImplementedError("Remote post deletion is not supported")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -24,6 +25,23 @@ from app.web.deps import require_web_auth
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["web-mkt-settings"])
+
+
+def _canonicalize_url(url: str) -> str:
+    parts = urlsplit(url)
+    scheme = (settings.canonical_scheme or parts.scheme or "https").strip()
+    host = (settings.canonical_host or parts.netloc).strip()
+    if not host:
+        host = parts.netloc
+    return urlunsplit((scheme, host, parts.path, parts.query, parts.fragment))
+
+
+def _existing_marketing_secret(db: Session, key: str) -> str:
+    try:
+        setting = marketing_settings.get_by_key(db, key)
+    except Exception:
+        return ""
+    return setting.value_text or ""
 
 
 @router.get("", response_class=HTMLResponse)
@@ -110,10 +128,14 @@ def settings_page(
             "configured": bool(meta_app_id and meta_app_secret),
             "app_id": meta_app_id,
             "has_secret": bool(meta_app_secret),
-            "oauth_redirect_uri": str(request.url_for("meta_callback")),
+            "oauth_redirect_uri": _canonicalize_url(
+                str(request.url_for("meta_callback"))
+            ),
             "graph_version": meta_graph_version,
             "has_webhook_verify_token": bool(meta_webhook_verify_token),
-            "webhook_callback_url": str(request.url_for("meta_webhook")),
+            "webhook_callback_url": _canonicalize_url(
+                str(request.url_for("meta_webhook"))
+            ),
             "api_timeout_seconds": meta_api_timeout_seconds,
         },
         "providers": [p.value for p in ChannelProvider],
@@ -203,6 +225,13 @@ async def save_meta_settings(
     graph_version = str(form.get("meta_graph_version", "")).strip() or "v19.0"
     webhook_verify_token = str(form.get("meta_webhook_verify_token", "")).strip()
     api_timeout_seconds = str(form.get("meta_api_timeout_seconds", "")).strip() or "30"
+
+    if not app_secret:
+        app_secret = _existing_marketing_secret(db, "meta_app_secret")
+    if not webhook_verify_token:
+        webhook_verify_token = _existing_marketing_secret(
+            db, "meta_webhook_verify_token"
+        )
 
     if not app_id:
         return RedirectResponse(

@@ -8,7 +8,7 @@
     {# Header #}
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Asset Library</h1>
-        <a href="/assets/create" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
+        <a href="/assets/create{% if campaign_id_filter is defined and campaign_id_filter %}?campaign_id={{ campaign_id_filter }}&next=/assets?campaign_id={{ campaign_id_filter }}{% endif %}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium shadow-lg shadow-primary-500/25 btn-hover">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
@@ -100,7 +100,7 @@
                 </div>
             </a>
             {% else %}
-            {{ empty_state("No assets found", "/assets/create", "Upload Asset") }}
+            {{ empty_state("No assets found", "/assets/create" ~ ("?campaign_id=" ~ campaign_id_filter ~ "&next=/assets?campaign_id=" ~ campaign_id_filter if campaign_id_filter is defined and campaign_id_filter else ""), "Upload Asset") }}
             {% endfor %}
         </div>
 
@@ -135,7 +135,7 @@
                         {% else %}
                         <tr>
                             <td colspan="4">
-                                {{ empty_state("No assets found", "/assets/create", "Upload Asset") }}
+                                {{ empty_state("No assets found", "/assets/create" ~ ("?campaign_id=" ~ campaign_id_filter ~ "&next=/assets?campaign_id=" ~ campaign_id_filter if campaign_id_filter is defined and campaign_id_filter else ""), "Upload Asset") }}
                             </td>
                         </tr>
                         {% endfor %}

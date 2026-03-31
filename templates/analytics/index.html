@@ -1,5 +1,6 @@
 {% extends "admin/base.html" %}
 {% from "admin/components/table_macros.html" import empty_state %}
+{% from "components/macros.html" import metric_card %}
 
 {% block page_title %}Analytics{% endblock %}
 
@@ -40,7 +41,7 @@
                        class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                 <label class="text-sm text-slate-500 dark:text-slate-400" for="post_id">Post</label>
                 <select id="post_id" name="post_id"
-                        class="min-w-56 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        class="w-full sm:w-auto sm:min-w-56 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                     <option value="">All posts</option>
                     {% for post in post_filter_options if post_filter_options is defined %}
                     <option value="{{ post.id }}" {% if selected_post_id == post.id %}selected{% endif %}>
@@ -55,32 +56,24 @@
                    class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                     Clear filters
                 </a>
+                <a href="/analytics/export?start_date={{ start_date }}&end_date={{ end_date }}{% if metric_date %}&metric_date={{ metric_date }}{% endif %}{% if selected_post_id %}&post_id={{ selected_post_id }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg border border-primary-300 dark:border-primary-700 text-sm font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition">
+                    Export CSV
+                </a>
             </form>
         </div>
     </div>
 
     {# Summary cards #}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {% set metric_cards = [
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {% set cards = [
             {"label": "Total Impressions", "value": total_impressions if total_impressions is defined else 0, "icon": "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z"},
             {"label": "Total Reach", "value": total_reach if total_reach is defined else 0, "icon": "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"},
             {"label": "Total Clicks", "value": total_clicks if total_clicks is defined else 0, "icon": "M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59"},
             {"label": "Total Engagement", "value": total_engagement if total_engagement is defined else 0, "icon": "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"},
         ] %}
-        {% for card in metric_cards %}
-        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 stagger-in">
-            <div class="flex items-center gap-3">
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ card.icon }}" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white counter-animate">{{ "{:,}".format(card.value) }}</p>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ card.label }}</p>
-                </div>
-            </div>
-        </div>
+        {% for card in cards %}
+        {{ metric_card(card.label, card.value, card.icon, "stagger-in") }}
         {% else %}
         {{ empty_state("No metrics available") }}
         {% endfor %}
@@ -106,7 +99,7 @@
                     <div class="h-8 bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                         <div class="{{ stage.color }} h-full rounded-lg flex items-center transition-all duration-700 ease-out"
                              style="width: {{ pct if pct > 2 else 2 }}%;">
-                            <span class="text-[11px] font-semibold text-white px-2 whitespace-nowrap">{{ "{:,}".format(stage.value) }}</span>
+                            <span class="text-[11px] font-semibold text-white px-2 whitespace-nowrap">{{ stage.value | format_number(0) }}</span>
                         </div>
                     </div>
                 </div>
@@ -166,7 +159,7 @@
             </svg>
             <div class="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                 <span>0</span>
-                <span>Peak: {{ "{:,}".format(time_series_chart.max_value) }}</span>
+                <span>Peak: {{ time_series_chart.max_value | format_number(0) }}</span>
             </div>
             <div class="grid gap-2 text-[11px] text-slate-500 dark:text-slate-400" style="grid-template-columns: repeat({{ time_series_chart.labels|length }}, minmax(0, 1fr));">
                 {% for label in time_series_chart.labels %}
@@ -175,8 +168,8 @@
             </div>
             <div class="grid gap-3 md:grid-cols-2">
                 {% for series in time_series_chart.series %}
-                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                    <div class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: {{ series.color }};">{{ series.label }}</div>
+                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3" style="--metric-color: {{ series.color }};">
+                    <div class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--metric-color);">{{ series.label }}</div>
                     <div class="space-y-1">
                         {% for marker in series.markers %}
                         <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
@@ -229,7 +222,7 @@
                         <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ row.date }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ row.post_title }}</td>
                         <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ row.channel_name }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.impressions if row.impressions else 0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.impressions if row.impressions else 0) | format_number(0) }}</td>
                     </tr>
                     {% else %}
                     <tr>
@@ -263,10 +256,10 @@
                     {% for row in channel_metrics if channel_metrics is defined %}
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                         <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ row.channel_name if row.channel_name else '' }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.impressions if row.impressions else 0) }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.reach if row.reach else 0) }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.clicks if row.clicks else 0) }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.engagement if row.engagement else 0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.impressions if row.impressions else 0) | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.reach if row.reach else 0) | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.clicks if row.clicks else 0) | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.engagement if row.engagement else 0) | format_number(0) }}</td>
                     </tr>
                     {% else %}
                     <tr>
@@ -290,7 +283,7 @@
                 <div class="space-y-2">
                     <div class="text-sm font-medium text-slate-900 dark:text-white">{{ row.channel_name }}</div>
                     {% for metric in row.metrics %}
-                    <div class="grid grid-cols-[88px_1fr_64px] items-center gap-3">
+                    <div class="grid grid-cols-[minmax(5rem,auto)_1fr_minmax(3rem,auto)] items-center gap-3">
                         <div class="text-xs text-slate-500 dark:text-slate-400">{{ metric.label }}</div>
                         <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                             <div class="h-full rounded-full" style="width: {{ metric.pct if metric.pct > 0 else 2 }}%; background-color: {{ metric.color }};"></div>
@@ -321,8 +314,8 @@
                     </div>
                     <div class="grid gap-2" style="grid-template-columns: repeat({{ active_metric_keys|length if active_metric_keys is defined and active_metric_keys else 1 }}, minmax(0, 1fr));">
                         {% for metric in row.metrics %}
-                        <div class="rounded-md px-2 py-3" style="background-color: {{ metric.color }}14;">
-                            <div class="text-[11px] uppercase tracking-wide" style="color: {{ metric.color }};">{{ metric.label }}</div>
+                        <div class="rounded-md px-2 py-3" style="--metric-color: {{ metric.color }}; background-color: color-mix(in srgb, {{ metric.color }} 8%, transparent);">
+                            <div class="text-[11px] uppercase tracking-wide" style="color: var(--metric-color);">{{ metric.label }}</div>
                             <div class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{{ metric.value | format_number(1) }}</div>
                         </div>
                         {% endfor %}

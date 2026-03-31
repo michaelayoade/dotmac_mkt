@@ -67,6 +67,12 @@
         var status = container.querySelector("[data-avatar-status]");
         var endpoint = container.getAttribute("data-avatar-endpoint") || "/auth/me/avatar";
 
+        // Ensure status element is an ARIA live region for screen readers
+        if (status && !status.getAttribute("aria-live")) {
+            status.setAttribute("aria-live", "polite");
+            status.setAttribute("role", "status");
+        }
+
         function setPreview(source) {
             if (!preview || !placeholder) {
                 return;

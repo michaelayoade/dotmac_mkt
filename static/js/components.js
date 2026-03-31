@@ -19,28 +19,42 @@ document.addEventListener('alpine:init', function () {
         }
     });
 
+    // ── Reduced-motion preference ─────────────────────────────────────
+    Alpine.store('motion', {
+        reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    });
+
     // ── Toast Store (used in base.html toast container) ──────────────
     Alpine.data('toastStore', function () {
         return {
             toasts: [],
+            _timers: {},
             addToast: function (detail) {
                 var self = this;
                 var id = Date.now();
+                var type = detail.type || 'info';
                 this.toasts.push({
                     id: id,
                     message: detail.message,
-                    type: detail.type || 'info',
-                    visible: true
+                    type: type,
+                    visible: true,
+                    ariaLive: (type === 'error' || type === 'warning') ? 'assertive' : 'polite'
                 });
-                setTimeout(function () { self.removeToast(id); }, detail.duration || 4000);
+                var duration = detail.duration || 4000;
+                this._timers[id] = setTimeout(function () { self.removeToast(id); }, duration);
             },
             removeToast: function (id) {
                 var self = this;
+                if (this._timers[id]) {
+                    clearTimeout(this._timers[id]);
+                    delete this._timers[id];
+                }
                 var toast = this.toasts.find(function (t) { return t.id === id; });
                 if (toast) {
                     toast.visible = false;
-                    setTimeout(function () {
+                    this._timers['fade-' + id] = setTimeout(function () {
                         self.toasts = self.toasts.filter(function (t) { return t.id !== id; });
+                        delete self._timers['fade-' + id];
                     }, 300);
                 }
             },
@@ -59,17 +73,29 @@ document.addEventListener('alpine:init', function () {
             notifications: [],
             ws: null,
             reconnectTimer: null,
+            _pollInterval: null,
 
             init: function () {
                 this.fetchNotifications();
                 this.connectWebSocket();
                 var self = this;
-                setInterval(function () { self.fetchUnreadCount(); }, 60000);
+                this._pollInterval = setInterval(function () { self.fetchUnreadCount(); }, 60000);
             },
 
             toggle: function () {
                 this.open = !this.open;
-                if (this.open) this.fetchNotifications();
+                if (this.open) {
+                    this.fetchNotifications();
+                    // Trap focus inside notification panel when open
+                    var self = this;
+                    this.$nextTick(function () {
+                        var panel = self.$el.querySelector('[data-notification-panel]');
+                        if (panel) {
+                            var firstFocusable = panel.querySelector('a, button, [tabindex]:not([tabindex="-1"])');
+                            if (firstFocusable) firstFocusable.focus();
+                        }
+                    });
+                }
             },
 
             fetchNotifications: async function () {
@@ -168,6 +194,7 @@ document.addEventListener('alpine:init', function () {
             destroy: function () {
                 if (this.ws) { this.ws.close(); this.ws = null; }
                 if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+                if (this._pollInterval) { clearInterval(this._pollInterval); this._pollInterval = null; }
             },
 
             hasUnread: function () { return this.unreadCount > 0; },

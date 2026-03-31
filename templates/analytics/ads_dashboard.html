@@ -1,0 +1,127 @@
+{% extends "admin/base.html" %}
+{% from "admin/components/table_macros.html" import empty_state %}
+{% from "components/macros.html" import metric_card %}
+
+{% block page_title %}All Ads{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white font-display">Ad Campaigns</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Unified view of paid ad performance across Meta, Google, and LinkedIn.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <form method="GET" action="/analytics/ads" class="flex flex-wrap items-center gap-2">
+                <input type="date" name="start_date" value="{{ start_date if start_date else '' }}" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                <span class="text-sm text-slate-400">to</span>
+                <input type="date" name="end_date" value="{{ end_date if end_date else '' }}" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                <select name="platform" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm">
+                    <option value="">All Platforms</option>
+                    {% for p in platforms %}
+                    <option value="{{ p.value }}" {{ 'selected' if selected_platform == p.value else '' }}>{{ p.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition">Apply</button>
+            </form>
+        </div>
+    </div>
+
+    {# KPI cards #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white" style="font-variant-numeric: tabular-nums;">${{ (overview.spend if overview.spend else 0) | round(2) }}</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Total Spend</p>
+                </div>
+            </div>
+        </div>
+        {{ metric_card("Impressions", overview.impressions if overview.impressions is defined else 0, "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z") }}
+        {{ metric_card("Clicks", overview.clicks if overview.clicks is defined else 0, "M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59") }}
+        {{ metric_card("Conversions", overview.conversions if overview.conversions is defined else 0, "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z") }}
+    </div>
+
+    {# Platform breakdown #}
+    {% if platform_summary %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Platform Breakdown</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Platform</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impressions</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conversions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for ps in platform_summary %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                        <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ ps.display_name if ps.display_name else ps.platform }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">${{ "%.2f" | format(ps.spend | float) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ps.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ps.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ ps.conversions | format_number(0) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Campaigns table #}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Ad Campaigns</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Campaign</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Platform</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Spend</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Impressions</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Clicks</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conversions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for c in campaigns %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer" onclick="window.location='/analytics/ads/{{ c.id }}?start_date={{ start_date }}&end_date={{ end_date }}'">
+                        <td class="px-4 py-3 text-sm font-medium text-primary-600 dark:text-primary-400">{{ c.name if c.name else 'Unnamed' }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ c.platform_display if c.platform_display else c.platform }}</td>
+                        <td class="px-4 py-3">
+                            {% set status_colors = {'active': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400', 'paused': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', 'removed': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'} %}
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium {{ status_colors.get(c.status, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">{{ c.status | replace('_', ' ') | title }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">${{ "%.2f" | format(c.spend | float) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ c.impressions | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ c.clicks | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{{ c.conversions | format_number(0) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7">
+                            {{ empty_state("No ad campaigns synced yet. Connect an ad channel and wait for the next sync, or check back after the ad sync runs.") }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

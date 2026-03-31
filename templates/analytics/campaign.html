@@ -51,10 +51,10 @@
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                         <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ row.channel_name if row.channel_name else '' }}</td>
                         <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ row.posts_count if row.posts_count else 0 }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.impressions if row.impressions else 0) }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.reach if row.reach else 0) }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.clicks if row.clicks else 0) }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ "{:,}".format(row.engagement if row.engagement else 0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.impressions if row.impressions else 0) | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.reach if row.reach else 0) | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.clicks if row.clicks else 0) | format_number(0) }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 text-right">{{ (row.engagement if row.engagement else 0) | format_number(0) }}</td>
                     </tr>
                     {% else %}
                     <tr>

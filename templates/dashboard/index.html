@@ -18,7 +18,7 @@
             <div class="flex items-end justify-between">
                 <div>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mb-1">{{ stat.label }}</p>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white counter-animate" style="font-variant-numeric: tabular-nums;">{{ "{:,}".format(stat.value) }}</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white counter-animate" style="font-variant-numeric: tabular-nums;">{{ stat.value | format_number(0) }}</p>
                     {% if stat.sparkline and impressions_change is defined %}
                     <div class="flex items-center gap-1 mt-1">
                         {% if impressions_change > 0 %}
@@ -36,7 +36,7 @@
                 </div>
                 <div class="flex-shrink-0">
                     {% if stat.sparkline and sparkline_data is defined and sparkline_data %}
-                    <canvas id="sparkline-4" width="80" height="36" class="opacity-70"></canvas>
+                    <canvas id="sparkline-4" width="80" height="36" class="opacity-70" role="img" aria-label="Impressions trend over the last 7 days"></canvas>
                     {% else %}
                     <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,7 +60,7 @@
             {% if campaign_status_counts is defined and campaign_status_counts %}
             <div class="flex items-center gap-6">
                 <div class="relative w-32 h-32 flex-shrink-0">
-                    <canvas id="donut-campaigns"></canvas>
+                    <canvas id="donut-campaigns" role="img" aria-label="Campaign status distribution: {{ total_campaigns if total_campaigns is defined else 0 }} total campaigns"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <span class="text-2xl font-bold text-slate-900 dark:text-white" style="font-variant-numeric: tabular-nums;">{{ total_campaigns if total_campaigns is defined else 0 }}</span>
                         <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total</span>
@@ -136,7 +136,7 @@
                         <a href="/campaigns/{{ campaign.id }}" class="text-sm font-medium text-slate-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
                             {{ campaign.name if campaign.name else '' }}
                         </a>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                             {{ campaign.start_date.strftime('%b %d') if campaign.start_date else '' }} - {{ campaign.end_date.strftime('%b %d') if campaign.end_date else 'Ongoing' }}
                         </p>
                     </div>
@@ -159,7 +159,7 @@
                 <div class="px-5 py-3 flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-slate-900 dark:text-white">{{ post.title if post.title else '' }}</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                             {{ post.channel.name if post.channel else '' }} &middot; {{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}
                         </p>
                     </div>

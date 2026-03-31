@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 _PROVIDER_KEY_MAP: dict[str, str] = {
     "meta_instagram": "account_id",
     "meta_facebook": "account_id",
+    "meta_ads": "account_id",
     "twitter": "account_id",
     "linkedin": "organization_id",
     "google_ads": "customer_id",
@@ -23,8 +24,19 @@ _PROVIDER_KEY_MAP: dict[str, str] = {
 }
 
 
+def _is_manual_access_token_only(creds: dict) -> bool:
+    return bool(creds.get("manual_token")) and not bool(creds.get("refresh_token"))
+
+
 async def _refresh_channel_token(channel, creds, cred_svc, channel_svc, db) -> bool:
     """Attempt to refresh a single channel's token. Returns True on success."""
+    if _is_manual_access_token_only(creds):
+        logger.info(
+            "Skipping token refresh for %s because it uses a manual access token only",
+            channel.name,
+        )
+        return False
+
     refresh_token_value = creds.get("refresh_token") or creds.get("access_token")
     if not refresh_token_value:
         logger.warning("No refresh token for %s, skipping", channel.name)
@@ -36,7 +48,7 @@ async def _refresh_channel_token(channel, creds, cred_svc, channel_svc, db) -> b
         "access_token": creds.get("access_token", ""),
         extra_key: channel.external_account_id or "",
     }
-    if channel.provider.value in {"meta_instagram", "meta_facebook"}:
+    if channel.provider.value in {"meta_instagram", "meta_facebook", "meta_ads"}:
         meta_config = get_meta_oauth_config(db)
         adapter_kwargs["client_id"] = meta_config.app_id
         adapter_kwargs["client_secret"] = meta_config.app_secret
@@ -71,6 +83,30 @@ async def _refresh_channel_token(channel, creds, cred_svc, channel_svc, db) -> b
     return True
 
 
+def _process_channel_refresh(channel, cred_svc, channel_svc, db, threshold) -> None:
+    """Evaluate and refresh a single channel's token if near expiry."""
+    if not channel.credentials_encrypted:
+        return
+
+    creds = cred_svc.decrypt(channel.credentials_encrypted)
+    if not creds:
+        logger.warning("Cannot decrypt creds for %s, marking error", channel.name)
+        channel_svc.update_status(channel.id, ChannelStatus.error)
+        return
+
+    expires_at_str = creds.get("expires_at")
+    if not expires_at_str:
+        return
+
+    try:
+        expires_at = datetime.fromisoformat(expires_at_str)
+    except (ValueError, TypeError):
+        return
+
+    if expires_at < threshold:
+        asyncio.run(_refresh_channel_token(channel, creds, cred_svc, channel_svc, db))
+
+
 @celery_app.task(name="token_refresh", ignore_result=True)
 def token_refresh():
     """Refresh OAuth tokens expiring within 10 minutes."""
@@ -88,32 +124,17 @@ def token_refresh():
         refreshed = 0
 
         for channel in connected:
-            if not channel.credentials_encrypted:
-                continue
-
-            creds = cred_svc.decrypt(channel.credentials_encrypted)
-            if not creds:
-                logger.warning(
-                    "Cannot decrypt creds for %s, marking error", channel.name
-                )
-                channel_svc.update_status(channel.id, ChannelStatus.error)
-                continue
-
-            expires_at_str = creds.get("expires_at")
-            if not expires_at_str:
-                continue
-
             try:
-                expires_at = datetime.fromisoformat(expires_at_str)
-            except (ValueError, TypeError):
-                continue
-
-            if expires_at < threshold:
-                success = asyncio.run(
-                    _refresh_channel_token(channel, creds, cred_svc, channel_svc, db)
+                _process_channel_refresh(channel, cred_svc, channel_svc, db, threshold)
+                refreshed += 1
+            except (LookupError, KeyError) as e:
+                logger.warning(
+                    "Skipping channel %s due to enum/key error: %s",
+                    getattr(channel, "name", channel),
+                    e,
                 )
-                if success:
-                    refreshed += 1
+            except (ValueError, RuntimeError, ConnectionError) as e:
+                logger.error("Token refresh error for %s: %s", channel.name, e)
 
         db.commit()
         if refreshed:
