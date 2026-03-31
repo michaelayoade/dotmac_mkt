@@ -1,6 +1,8 @@
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
+import app.web.campaigns as campaigns_web
+
 from app.models.channel import ChannelProvider
 from app.models.channel_metric import MetricType
 from app.models.post import Post, PostStatus
@@ -94,6 +96,40 @@ def test_campaign_list_renders_post_inspector_for_recent_posts(
     assert "125" in html
     assert "41" in html
     assert f"/campaigns/{campaign.id}/posts/{post.id}/detail" in html
+
+
+def test_campaign_list_live_sync_can_surface_recent_imported_instagram_post(
+    client, db_session, auth_token, campaign, channel, person, monkeypatch
+):
+    channel.provider = ChannelProvider.meta_instagram
+    db_session.commit()
+
+    def _fake_live_sync(db):
+        post = Post(
+            campaign_id=campaign.id,
+            channel_id=channel.id,
+            title="Imported IG Reel",
+            content="Synced from Instagram during page load.",
+            status=PostStatus.published,
+            external_post_id="ig-live-001",
+            published_at=datetime.now(UTC),
+            created_by=person.id,
+        )
+        db.add(post)
+        db.flush()
+        return 1
+
+    monkeypatch.setattr(campaigns_web, "sync_recent_channel_posts_now", _fake_live_sync)
+
+    response = client.get(
+        "/campaigns",
+        cookies={"access_token": auth_token},
+    )
+
+    assert response.status_code == 200
+    html = response.text
+    assert "Imported IG Reel" in html
+    assert "Synced from Instagram during page load." in html
 
 
 def test_campaign_post_detail_fragment_returns_selected_post_metrics(

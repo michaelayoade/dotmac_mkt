@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import select
 
 from app.adapters.base import MetricData, PostData
+from app.models.campaign import Campaign, CampaignStatus
 from app.models.channel import ChannelProvider
 from app.models.channel_metric import ChannelMetric, MetricType
 from app.models.post import Post, PostStatus
@@ -217,6 +218,109 @@ def test_sync_channel_keeps_unmapped_external_post_metrics_at_channel_level(
         .all()
     )
     assert channel_post_metrics == []
+
+
+def test_sync_channel_imports_remote_post_when_no_local_match(
+    db_session, campaign, channel, monkeypatch
+):
+    channel.provider = ChannelProvider.meta_instagram
+    channel.credentials_encrypted = b"encrypted"
+    db_session.commit()
+
+    published_at = datetime(2026, 3, 24, 12, 0, tzinfo=UTC)
+    metrics = [
+        MetricData(
+            metric_date=date(2026, 3, 24),
+            metric_type="impressions",
+            value=82.0,
+            post_id="ig-123",
+        )
+    ]
+    remote_posts = [
+        PostData(
+            external_id="ig-123",
+            title="",
+            content="Fresh Instagram post from the native app",
+            published_at=published_at,
+        )
+    ]
+    monkeypatch.setattr(
+        analytics_sync_module,
+        "get_adapter",
+        lambda provider, **kwargs: _FakeAdapter(metrics, remote_posts),
+    )
+
+    analytics = AnalyticsService(db_session)
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
+    db_session.commit()
+
+    imported_post = db_session.scalar(
+        select(Post).where(Post.external_post_id == "ig-123")
+    )
+    assert imported_post is not None
+    assert imported_post.campaign_id == campaign.id
+    assert imported_post.channel_id == channel.id
+    assert imported_post.status == PostStatus.published
+    assert imported_post.title == "Fresh Instagram post from the native app"
+
+    row = db_session.execute(
+        select(ChannelMetric).where(
+            ChannelMetric.channel_id == channel.id,
+            ChannelMetric.metric_date == date(2026, 3, 24),
+            ChannelMetric.metric_type == MetricType.impressions,
+        )
+    ).scalar_one()
+    assert row.post_id == imported_post.id
+
+
+def test_sync_channel_import_prefers_campaign_matching_publish_window(
+    db_session, campaign, channel, person, monkeypatch
+):
+    channel.provider = ChannelProvider.meta_instagram
+    channel.credentials_encrypted = b"encrypted"
+
+    campaign.status = CampaignStatus.completed
+    campaign.start_date = date(2026, 3, 1)
+    campaign.end_date = date(2026, 3, 10)
+
+    matching_campaign = Campaign(
+        name="Spring Launch",
+        status=CampaignStatus.active,
+        start_date=date(2026, 3, 20),
+        end_date=date(2026, 3, 31),
+        created_by=person.id,
+    )
+    db_session.add(matching_campaign)
+    db_session.commit()
+
+    published_at = datetime(2026, 3, 24, 12, 0, tzinfo=UTC)
+    remote_posts = [
+        PostData(
+            external_id="ig-456",
+            title="",
+            content="Spring launch reel",
+            published_at=published_at,
+        )
+    ]
+    monkeypatch.setattr(
+        analytics_sync_module,
+        "get_adapter",
+        lambda provider, **kwargs: _FakeAdapter([], remote_posts),
+    )
+
+    analytics = AnalyticsService(db_session)
+    _sync_channel(
+        channel, _FakeCreds(), analytics, date(2026, 3, 20), date(2026, 3, 24)
+    )
+    db_session.commit()
+
+    imported_post = db_session.scalar(
+        select(Post).where(Post.external_post_id == "ig-456")
+    )
+    assert imported_post is not None
+    assert imported_post.campaign_id == matching_campaign.id
 
 
 def test_build_live_adapter_skips_refresh_for_manual_access_token_only(

@@ -32,7 +32,10 @@ from app.services.post_asset_service import PostAssetService
 from app.services.post_service import PostService, post_recency_sort_expr
 from app.services.publishing_service import PublishingService
 from app.services.task_service import MktTaskService
-from app.tasks.analytics_sync import sync_post_metrics_now
+from app.tasks.analytics_sync import (
+    sync_post_metrics_now,
+    sync_recent_channel_posts_now,
+)
 from app.templates import templates
 from app.web.deps import require_web_auth
 
@@ -397,6 +400,8 @@ def list_campaigns(
 ) -> HTMLResponse:
     """List campaigns with optional status filter and name search."""
     from sqlalchemy import func
+
+    sync_recent_channel_posts_now(db)
 
     # Resolve status filter
     status_filter: CampaignStatus | None = None

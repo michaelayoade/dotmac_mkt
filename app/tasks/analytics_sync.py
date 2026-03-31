@@ -1,15 +1,18 @@
+import asyncio
 import logging
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import case, select
 
 from app.adapters.base import MetricData
 from app.adapters.registry import get_adapter
 from app.celery_app import celery_app
 from app.db import SessionLocal
+from app.models.campaign import Campaign, CampaignStatus
 from app.models.channel import ChannelProvider, ChannelStatus
 from app.models.channel_metric import MetricType
+from app.models.person import Person
 from app.models.post import Post, PostStatus
 from app.models.post_delivery import PostDelivery
 from app.services.analytics_service import AnalyticsService
@@ -17,6 +20,13 @@ from app.services.channel_service import ChannelService
 from app.services.credential_service import CredentialService
 
 logger = logging.getLogger(__name__)
+
+CONTENT_SYNC_PROVIDERS = {
+    ChannelProvider.meta_instagram,
+    ChannelProvider.meta_facebook,
+    ChannelProvider.twitter,
+    ChannelProvider.linkedin,
+}
 
 
 @celery_app.task(name="analytics_sync", ignore_result=True)
@@ -106,6 +116,53 @@ def sync_post_metrics_now(post: Post, db) -> None:
                 post.id,
                 channel.name,
             )
+
+
+def sync_recent_channel_posts_now(db, *, max_age_minutes: int = 15) -> int:
+    """Import recent remote posts for connected social channels on demand."""
+    if not CredentialService.is_configured():
+        return 0
+
+    channel_svc = ChannelService(db)
+    connected = [
+        channel
+        for channel in channel_svc.list_all()
+        if channel.status == ChannelStatus.connected
+        and channel.provider in CONTENT_SYNC_PROVIDERS
+    ]
+    if not connected:
+        return 0
+
+    try:
+        cred_svc = CredentialService()
+    except (ValueError, RuntimeError):
+        logger.debug("Credential service unavailable, skipping on-demand channel sync")
+        return 0
+
+    now = datetime.now(UTC)
+    synced = 0
+    for channel in connected:
+        if (
+            channel.last_synced_at is not None
+            and now - channel.last_synced_at <= timedelta(minutes=max_age_minutes)
+        ):
+            continue
+        try:
+            creds = cred_svc.decrypt(channel.credentials_encrypted)
+            if not creds:
+                continue
+            adapter, _ = asyncio.run(
+                _build_live_adapter(channel, creds, cred_svc, db)
+            )
+            _sync_external_post_ids(channel, adapter, AnalyticsService(db), date.today())
+            channel_svc.update_last_synced(channel.id)
+            synced += 1
+        except Exception:
+            logger.exception(
+                "On-demand channel post sync failed for channel %s",
+                channel.name,
+            )
+    return synced
 
 
 def _sync_channel(channel, cred_svc, analytics_svc, start, end):
@@ -250,6 +307,8 @@ def _sync_external_post_ids(channel, adapter, analytics_svc, start: date) -> Non
 
         match = _match_local_post(channel.id, remote_post, analytics_svc)
         if match is None:
+            match = _import_remote_post(channel, remote_post, analytics_svc)
+        if match is None:
             continue
 
         match.external_post_id = external_id
@@ -361,6 +420,138 @@ def _match_local_post(channel_id, remote_post, analytics_svc):
     if len(matches) == 1:
         return matches[0]
     return None
+
+
+def _import_remote_post(channel, remote_post, analytics_svc) -> Post | None:
+    campaign = _select_campaign_for_remote_post(channel, remote_post, analytics_svc)
+    if campaign is None:
+        logger.info(
+            "No matching campaign found for remote post %s on %s; skipping local import",
+            remote_post.external_id,
+            channel.name,
+        )
+        return None
+
+    post = Post(
+        campaign_id=campaign.id,
+        channel_id=channel.id,
+        title=_remote_post_title(remote_post),
+        content=(remote_post.content or "").strip() or None,
+        status=PostStatus.published,
+        published_at=remote_post.published_at,
+        created_by=campaign.created_by,
+    )
+    analytics_svc.db.add(post)
+    analytics_svc.db.flush()
+    logger.info(
+        "Imported remote post %s into campaign %s for %s",
+        remote_post.external_id,
+        campaign.name,
+        channel.name,
+    )
+    return post
+
+
+def _select_campaign_for_remote_post(channel, remote_post, analytics_svc) -> Campaign | None:
+    db = analytics_svc.db
+    published_date = (
+        remote_post.published_at.date()
+        if remote_post.published_at is not None
+        else date.today()
+    )
+
+    in_window_stmt = (
+        select(Campaign)
+        .where(Campaign.status != CampaignStatus.archived)
+        .where(~Campaign.name.like("%Imported Posts"))
+        .where(
+            (Campaign.start_date.is_(None)) | (Campaign.start_date <= published_date)
+        )
+        .where((Campaign.end_date.is_(None)) | (Campaign.end_date >= published_date))
+        .order_by(
+            case((Campaign.status == CampaignStatus.active, 1), else_=0).desc(),
+            case((Campaign.start_date.is_not(None), 1), else_=0).desc(),
+            Campaign.start_date.desc(),
+            Campaign.created_at.desc(),
+        )
+    )
+    campaign = db.scalar(in_window_stmt)
+    if campaign is not None:
+        return campaign
+
+    fallback_stmt = (
+        select(Campaign)
+        .where(~Campaign.name.like("%Imported Posts"))
+        .where(
+            Campaign.status.in_(
+                [
+                    CampaignStatus.active,
+                    CampaignStatus.draft,
+                    CampaignStatus.paused,
+                    CampaignStatus.completed,
+                ]
+            )
+        )
+        .order_by(
+            case((Campaign.status == CampaignStatus.active, 1), else_=0).desc(),
+            Campaign.created_at.desc(),
+        )
+    )
+    campaign = db.scalar(fallback_stmt)
+    if campaign is not None:
+        return campaign
+    return _get_or_create_import_campaign(channel, analytics_svc)
+
+
+def _get_or_create_import_campaign(channel, analytics_svc) -> Campaign | None:
+    db = analytics_svc.db
+    campaign_name = _import_campaign_name(channel)
+    existing = db.scalar(select(Campaign).where(Campaign.name == campaign_name))
+    if existing is not None:
+        return existing
+
+    created_by = db.scalar(
+        select(Person.id).where(Person.is_active.is_(True)).order_by(Person.created_at)
+    )
+    if created_by is None:
+        logger.warning(
+            "Cannot create imported-posts campaign for %s without an active person",
+            channel.name,
+        )
+        return None
+
+    campaign = Campaign(
+        name=campaign_name,
+        description=f"Auto-imported published posts from {channel.name}.",
+        status=CampaignStatus.active,
+        created_by=created_by,
+    )
+    db.add(campaign)
+    db.flush()
+    logger.info("Created imported-posts campaign %s", campaign.name)
+    return campaign
+
+
+def _import_campaign_name(channel) -> str:
+    if channel.provider == ChannelProvider.meta_instagram:
+        return "Instagram account Imported Posts"
+    if channel.provider == ChannelProvider.meta_facebook:
+        return "Facebook page Imported Posts"
+    if channel.provider == ChannelProvider.twitter:
+        return "X account Imported Posts"
+    if channel.provider == ChannelProvider.linkedin:
+        return "LinkedIn organization Imported Posts"
+    return f"{channel.name} Imported Posts"
+
+
+def _remote_post_title(remote_post) -> str:
+    content = " ".join((remote_post.content or "").strip().split())
+    if content:
+        return content[:297] + "..." if len(content) > 300 else content
+    published_at = remote_post.published_at
+    if published_at is not None:
+        return f"Imported post {published_at.strftime('%Y-%m-%d %H:%M')}"
+    return "Imported post"
 
 
 def _load_post_id_map(

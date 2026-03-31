@@ -1,0 +1,53 @@
+resolver 127.0.0.11 ipv6=off valid=10s;
+
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    "" $scheme;
+}
+
+server {
+    listen 80;
+    server_name localhost;
+
+    client_max_body_size 20M;
+
+    # Static files are proxied through the app container so image-bundled
+    # assets still work even if the host static directory is incomplete.
+    location /static/ {
+        set $app_upstream http://app:8001;
+        proxy_pass $app_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    location = /favicon.ico {
+        alias /app/static/branding/favicon.ico;
+        access_log off;
+        log_not_found off;
+    }
+
+    location /ws {
+        set $app_upstream http://app:8001;
+        proxy_pass $app_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_read_timeout 86400;
+    }
+
+    location / {
+        set $app_upstream http://app:8001;
+        proxy_pass $app_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_redirect off;
+    }
+}
