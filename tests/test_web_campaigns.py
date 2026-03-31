@@ -285,8 +285,60 @@ def test_campaign_posts_tab_shows_actions_for_single_delivery_published_facebook
 
     assert response.status_code == 200
     html = response.text
+    assert "Test Instagram" in html
     assert f"/campaigns/{campaign.id}/posts/{post.id}/edit" in html
     assert f"/campaigns/{campaign.id}/posts/{post.id}/delete" in html
+
+
+def test_campaign_list_prefers_recently_published_delivery_backed_posts_in_preview(
+    client, db_session, auth_token, campaign, channel, person
+):
+    channel.provider = ChannelProvider.meta_facebook
+    recent_post = Post(
+        campaign_id=campaign.id,
+        channel_id=None,
+        title="Recent Facebook Publish",
+        content="Just published",
+        status=PostStatus.published,
+        published_at=datetime.now(UTC),
+        created_at=datetime.now(UTC) - timedelta(days=10),
+        created_by=person.id,
+    )
+    older_drafts = [
+        Post(
+            campaign_id=campaign.id,
+            channel_id=channel.id,
+            title=f"Draft Post {idx}",
+            status=PostStatus.draft,
+            created_at=datetime.now(UTC) - timedelta(days=idx),
+            created_by=person.id,
+        )
+        for idx in range(1, 4)
+    ]
+    db_session.add(recent_post)
+    db_session.add_all(older_drafts)
+    db_session.flush()
+    db_session.add(
+        PostDelivery(
+            post_id=recent_post.id,
+            channel_id=channel.id,
+            provider=channel.provider,
+            status=PostDeliveryStatus.published,
+            external_post_id="fb-recent-123",
+            published_at=recent_post.published_at,
+        )
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/campaigns",
+        cookies={"access_token": auth_token},
+    )
+
+    assert response.status_code == 200
+    html = response.text
+    assert "Recent Facebook Publish" in html
+    assert "Test Instagram" in html
 
 
 # ── Post CRUD tests ──────────────────────────────────────────────────────────

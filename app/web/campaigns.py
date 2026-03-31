@@ -29,7 +29,7 @@ from app.services.analytics_service import AnalyticsService
 from app.services.asset_service import AssetService
 from app.services.campaign_service import CampaignService
 from app.services.post_asset_service import PostAssetService
-from app.services.post_service import PostService
+from app.services.post_service import PostService, post_recency_sort_expr
 from app.services.publishing_service import PublishingService
 from app.services.task_service import MktTaskService
 from app.tasks.analytics_sync import sync_post_metrics_now
@@ -267,6 +267,13 @@ def _decorate_posts_with_action_capabilities(posts: list[Post]) -> list[Post]:
         db = Session.object_session(post)
         if db is None:
             continue
+        selected_channels = _selected_channels(db, post)
+        post.display_channel_name = (
+            ", ".join(
+                dict.fromkeys(channel.name for channel in selected_channels if channel.name)
+            )
+            or "-"
+        )
         for key, value in _post_action_capabilities(db, post).items():
             setattr(post, key, value)
     return posts
@@ -444,8 +451,15 @@ def list_campaigns(
             db.scalars(
                 select(Post)
                 .where(Post.campaign_id.in_(campaign_ids))
-                .options(selectinload(Post.channel))
-                .order_by(Post.campaign_id, Post.created_at.desc())
+                .options(
+                    selectinload(Post.channel),
+                    selectinload(Post.deliveries).selectinload(PostDelivery.channel),
+                )
+                .order_by(
+                    Post.campaign_id,
+                    post_recency_sort_expr().desc(),
+                    Post.created_at.desc(),
+                )
             ).all()
         )
         preview_posts_by_campaign: dict[UUID, list[Post]] = defaultdict(list)

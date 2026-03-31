@@ -43,7 +43,7 @@
                     >
                         <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{{ post.title if post.title else '' }}</td>
                         <td class="px-4 py-3">{{ status_badge(post.status | string if post.status else '') }}</td>
-                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.channel.name if post.channel else '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.display_channel_name if post.display_channel_name is defined else (post.channel.name if post.channel else '-') }}</td>
                         <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ post.scheduled_at.strftime('%b %d, %H:%M') if post.scheduled_at else 'Unscheduled' }}</td>
                         <td class="px-4 py-3" x-on:click.stop x-on:keydown.stop>
                             <div class="flex items-center justify-end gap-2">
