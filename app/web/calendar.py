@@ -87,9 +87,7 @@ def _parse_status(value: str, *, row_num: int) -> PostStatus:
         return PostStatus(cleaned)
     except ValueError as exc:
         allowed = ", ".join(status.value for status in PostStatus)
-        raise ValueError(
-            f"Row {row_num}: status must be one of {allowed}."
-        ) from exc
+        raise ValueError(f"Row {row_num}: status must be one of {allowed}.") from exc
 
 
 def _connected_channels(db: Session) -> list[Channel]:
@@ -102,7 +100,9 @@ def _connected_channels(db: Session) -> list[Channel]:
     return list(db.scalars(stmt).all())
 
 
-def _campaign_lookup(campaigns: Iterable[Campaign]) -> tuple[dict[str, Campaign], dict[str, Campaign]]:
+def _campaign_lookup(
+    campaigns: Iterable[Campaign],
+) -> tuple[dict[str, Campaign], dict[str, Campaign]]:
     by_id: dict[str, Campaign] = {}
     by_name: dict[str, Campaign] = {}
     for campaign in campaigns:
@@ -113,7 +113,9 @@ def _campaign_lookup(campaigns: Iterable[Campaign]) -> tuple[dict[str, Campaign]
     return by_id, by_name
 
 
-def _channel_lookup(channels: Iterable[Channel]) -> tuple[dict[str, Channel], dict[str, Channel]]:
+def _channel_lookup(
+    channels: Iterable[Channel],
+) -> tuple[dict[str, Channel], dict[str, Channel]]:
     by_id: dict[str, Channel] = {}
     by_name: dict[str, Channel] = {}
     for channel in channels:
@@ -210,7 +212,9 @@ def _parse_overrides(
 
 def _serialize_post_row(post: Post) -> dict[str, str]:
     deliveries = list(post.deliveries)
-    channels = [delivery.channel for delivery in deliveries if delivery.channel is not None]
+    channels = [
+        delivery.channel for delivery in deliveries if delivery.channel is not None
+    ]
     if not channels and post.channel is not None:
         channels = [post.channel]
     overrides = {
@@ -238,7 +242,9 @@ def _serialize_post_row(post: Post) -> dict[str, str]:
     }
 
 
-def _example_rows(campaigns: list[Campaign], channels: list[Channel]) -> list[dict[str, str]]:
+def _example_rows(
+    campaigns: list[Campaign], channels: list[Channel]
+) -> list[dict[str, str]]:
     if not campaigns:
         return [
             {
@@ -251,7 +257,7 @@ def _example_rows(campaigns: list[Campaign], channels: list[Channel]) -> list[di
                 "scheduled_at": "2026-04-10T09:00:00Z",
                 "channels": "Twitter|LinkedIn",
                 "channel_ids": "",
-                "channel_overrides_json": "{\"Twitter\": \"Shorter teaser for X\"}",
+                "channel_overrides_json": '{"Twitter": "Shorter teaser for X"}',
             }
         ]
     campaign = campaigns[0]
@@ -412,11 +418,11 @@ async def import_calendar_csv(
         reader = csv.DictReader(io.StringIO(text))
         if reader.fieldnames is None:
             raise ValueError("The uploaded CSV is empty.")
-        missing_headers = [header for header in CSV_HEADERS if header not in reader.fieldnames]
+        missing_headers = [
+            header for header in CSV_HEADERS if header not in reader.fieldnames
+        ]
         if missing_headers:
-            raise ValueError(
-                "Missing required columns: " + ", ".join(missing_headers)
-            )
+            raise ValueError("Missing required columns: " + ", ".join(missing_headers))
 
         campaigns = CampaignService(db).list_all(limit=500)
         channels = _connected_channels(db)
@@ -429,7 +435,9 @@ async def import_calendar_csv(
         updated_count = 0
 
         for row_num, row in enumerate(reader, start=2):
-            if not any(_clean_cell(str(value)) for value in row.values() if value is not None):
+            if not any(
+                _clean_cell(str(value)) for value in row.values() if value is not None
+            ):
                 continue
 
             campaign = _resolve_campaign(
@@ -517,9 +525,7 @@ async def import_calendar_csv(
             created_count += 1
 
         db.commit()
-        success_message = (
-            f"Imported {created_count} new posts and updated {updated_count} existing posts"
-        )
+        success_message = f"Imported {created_count} new posts and updated {updated_count} existing posts"
         return RedirectResponse(
             url=f"/calendar?success={quote_plus(success_message)}",
             status_code=302,

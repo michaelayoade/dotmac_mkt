@@ -2,7 +2,6 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 import app.web.campaigns as campaigns_web
-
 from app.models.channel import ChannelProvider
 from app.models.channel_metric import MetricType
 from app.models.post import Post, PostStatus

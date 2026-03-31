@@ -273,7 +273,9 @@ def _decorate_posts_with_action_capabilities(posts: list[Post]) -> list[Post]:
         selected_channels = _selected_channels(db, post)
         post.display_channel_name = (
             ", ".join(
-                dict.fromkeys(channel.name for channel in selected_channels if channel.name)
+                dict.fromkeys(
+                    channel.name for channel in selected_channels if channel.name
+                )
             )
             or "-"
         )

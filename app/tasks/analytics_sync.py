@@ -151,10 +151,10 @@ def sync_recent_channel_posts_now(db, *, max_age_minutes: int = 15) -> int:
             creds = cred_svc.decrypt(channel.credentials_encrypted)
             if not creds:
                 continue
-            adapter, _ = asyncio.run(
-                _build_live_adapter(channel, creds, cred_svc, db)
+            adapter, _ = asyncio.run(_build_live_adapter(channel, creds, cred_svc, db))
+            _sync_external_post_ids(
+                channel, adapter, AnalyticsService(db), date.today()
             )
-            _sync_external_post_ids(channel, adapter, AnalyticsService(db), date.today())
             channel_svc.update_last_synced(channel.id)
             synced += 1
         except Exception:
@@ -452,7 +452,9 @@ def _import_remote_post(channel, remote_post, analytics_svc) -> Post | None:
     return post
 
 
-def _select_campaign_for_remote_post(channel, remote_post, analytics_svc) -> Campaign | None:
+def _select_campaign_for_remote_post(
+    channel, remote_post, analytics_svc
+) -> Campaign | None:
     db = analytics_svc.db
     published_date = (
         remote_post.published_at.date()

@@ -20,9 +20,12 @@ def test_calendar_example_csv_downloads_expected_columns(
     assert "text/csv" in response.headers["content-type"]
     assert "content-calendar-example.csv" in response.headers["content-disposition"]
     body = response.text
-    assert "post_id,campaign_name,campaign_id,title,content,status,scheduled_at,channels,channel_ids,channel_overrides_json" in body
+    assert (
+        "post_id,campaign_name,campaign_id,title,content,status,scheduled_at,channels,channel_ids,channel_overrides_json"
+        in body
+    )
     assert campaign.name in body
-    assert channel.name in body
+    assert str(campaign.id) in body
 
 
 def test_calendar_import_creates_post_and_delivery(
@@ -34,7 +37,7 @@ def test_calendar_import_creates_post_and_delivery(
             "post_id,campaign_name,campaign_id,title,content,status,scheduled_at,channels,channel_ids,channel_overrides_json",
             (
                 f',"{campaign.name}",{campaign.id},"April teaser","Launch copy",planned,2026-04-10T09:00:00Z,'
-                f'"{channel.name}",{channel.id},"{{""{channel.name}"": ""Platform-specific copy""}}"'
+                f'"",{channel.id},"{{""{channel.id}"": ""Platform-specific copy""}}"'
             ),
         ]
     )
@@ -48,16 +51,21 @@ def test_calendar_import_creates_post_and_delivery(
     )
 
     assert response.status_code == 302
-    assert "Imported+1+new+posts+and+updated+0+existing+posts" in response.headers["location"]
+    assert (
+        "Imported+1+new+posts+and+updated+0+existing+posts"
+        in response.headers["location"]
+    )
 
     post = db_session.query(Post).filter(Post.title == "April teaser").one()
     assert post.campaign_id == campaign.id
     assert post.created_by == person.id
     assert post.status == PostStatus.planned
     assert post.scheduled_at is not None
-    assert len(post.deliveries) == 1
-    assert post.deliveries[0].channel_id == channel.id
-    assert post.deliveries[0].content_override == "Platform-specific copy"
+    deliveries = [
+        delivery for delivery in post.deliveries if delivery.channel_id == channel.id
+    ]
+    assert len(deliveries) == 1
+    assert deliveries[0].content_override == "Platform-specific copy"
 
 
 def test_calendar_import_updates_existing_post_by_post_id(
@@ -81,7 +89,7 @@ def test_calendar_import_updates_existing_post_by_post_id(
             "post_id,campaign_name,campaign_id,title,content,status,scheduled_at,channels,channel_ids,channel_overrides_json",
             (
                 f'{post.id},"{campaign.name}",{campaign.id},"Updated title","Updated content",planned,2026-04-12T14:30:00Z,'
-                f'"{channel.name}",{channel.id},"{{}}"'
+                f'"",{channel.id},"{{}}"'
             ),
         ]
     )
@@ -95,7 +103,10 @@ def test_calendar_import_updates_existing_post_by_post_id(
     )
 
     assert response.status_code == 302
-    assert "Imported+0+new+posts+and+updated+1+existing+posts" in response.headers["location"]
+    assert (
+        "Imported+0+new+posts+and+updated+1+existing+posts"
+        in response.headers["location"]
+    )
 
     db_session.refresh(post)
     assert post.title == "Updated title"

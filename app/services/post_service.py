@@ -39,10 +39,14 @@ class PostService:
             stmt = stmt.where(Post.campaign_id == campaign_id)
         if channel_id is not None:
             stmt = stmt.where(Post.channel_id == channel_id)
-        stmt = stmt.order_by(
-            post_recency_sort_expr().desc(),
-            Post.created_at.desc(),
-        ).offset(offset).limit(limit)
+        stmt = (
+            stmt.order_by(
+                post_recency_sort_expr().desc(),
+                Post.created_at.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+        )
         return list(self.db.scalars(stmt).all())
 
     def list_scheduled(self, *, days_ahead: int = 7) -> list[Post]:
