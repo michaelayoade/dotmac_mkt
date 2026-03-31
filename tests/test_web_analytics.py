@@ -1,6 +1,7 @@
 import re
 from datetime import UTC, date, datetime, timedelta
 
+from sqlalchemy import update
 from starlette.requests import Request
 
 from app.models.channel import ChannelProvider, ChannelStatus
@@ -150,8 +151,15 @@ def test_meta_ads_page_renders_history_rows(
     )
     channel.status = ChannelStatus.connected
     channel.external_account_id = "9876543210"
-    channel.credentials_encrypted = CredentialService().encrypt(
-        {"access_token": "meta-access", "account_id": "9876543210"}
+    db_session.commit()
+    db_session.execute(
+        update(type(channel))
+        .where(type(channel).id == channel.id)
+        .values(
+            credentials_encrypted=CredentialService().encrypt(
+                {"access_token": "meta-access", "account_id": "9876543210"}
+            )
+        )
     )
     db_session.commit()
 

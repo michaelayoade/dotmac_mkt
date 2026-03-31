@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 from jose import jwt
 
 from app.models.asset import Asset, AssetType
-from app.services.auth_flow import hash_session_token
+from app.services.auth_flow import AuthFlow, hash_session_token
 
 
 def test_create_asset_uploads_file_to_drive_via_service(
@@ -169,6 +169,7 @@ def test_create_asset_form_refreshes_expired_access_cookie(
     refresh_token = "refresh-token-for-assets-form"
     auth_session.token_hash = hash_session_token(refresh_token)
     db_session.commit()
+    refresh_cookie_key = AuthFlow.refresh_cookie_settings(db_session)["key"]
 
     secret = "test-secret"
     now = datetime.now(UTC)
@@ -197,14 +198,14 @@ def test_create_asset_form_refreshes_expired_access_cookie(
         "/assets/create",
         cookies={
             "access_token": expired_access,
-            "refresh_token": refresh_token,
+            refresh_cookie_key: refresh_token,
         },
     )
 
     assert response.status_code == 200
     assert "Upload Asset" in response.text
     assert response.cookies.get("access_token")
-    assert response.cookies.get("refresh_token")
+    assert response.cookies.get(refresh_cookie_key)
 
 
 def test_drive_folder_search_returns_matching_items(client, auth_token, monkeypatch):
@@ -360,10 +361,11 @@ def test_delete_asset_removes_drive_file_and_marks_asset_missing(
 
 
 def test_asset_detail_uses_thumbnail_preview_for_images(
-    client, auth_token, asset, monkeypatch
+    client, db_session, auth_token, asset, monkeypatch
 ):
     monkeypatch.setattr("app.web.assets._refresh_drive_assets", lambda db: None)
     asset.thumbnail_url = "https://thumb.example/asset.png"
+    db_session.commit()
 
     response = client.get(
         f"/assets/{asset.id}",
